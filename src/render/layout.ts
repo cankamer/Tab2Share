@@ -1,4 +1,5 @@
 import type { Beat, Measure, Project } from "../model/types";
+import { measureLeadWidth, resolveMeasureMarks, type MeasureMarks } from "../editor/effectiveSettings";
 import {
   BEAT_WIDTH,
   BOTTOM_MARGIN,
@@ -22,8 +23,15 @@ export interface BeatPlacement {
 
 export interface MeasurePlacement {
   measure: Measure;
+  measureIndex: number;
+  /** Tempo / time-signature markers this measure prints (null = none). */
+  marks: MeasureMarks;
+  /** Opening barline x. The first beat sits `leadWidth` further right (time signature / repeat sign). */
   startX: number;
+  /** Right edge of the last beat. */
   endX: number;
+  /** Where this measure's closing barline is drawn (the next measure's opening barline, or endX for the last). */
+  closeX: number;
   beats: BeatPlacement[];
 }
 
@@ -58,8 +66,10 @@ export function computeLayout(project: Project): TabLayout {
   let x = TUNING_LABEL_WIDTH;
   let flatIndex = 0;
   const flatBeats: BeatPlacement[] = [];
-  const measures: MeasurePlacement[] = project.track.measures.map((measure) => {
+  const allMarks = resolveMeasureMarks(project);
+  const measures: MeasurePlacement[] = project.track.measures.map((measure, measureIndex) => {
     const startX = x;
+    x += measureLeadWidth(allMarks[measureIndex], measure);
     const beats: BeatPlacement[] = measure.beats.map((beat) => {
       const beatX = x + BEAT_WIDTH / 2;
       x += BEAT_WIDTH;
@@ -69,7 +79,10 @@ export function computeLayout(project: Project): TabLayout {
     });
     const endX = x;
     x += MEASURE_BARLINE_GAP;
-    return { measure, startX, endX, beats };
+    return { measure, measureIndex, marks: allMarks[measureIndex], startX, endX, closeX: endX, beats };
+  });
+  measures.forEach((placement, index) => {
+    if (index < measures.length - 1) placement.closeX = measures[index + 1].startX;
   });
 
   const width = x;

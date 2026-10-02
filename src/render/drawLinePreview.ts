@@ -1,9 +1,11 @@
 import type { Beat, Project } from "../model/types";
 import { isStandardTuning } from "../model/tunings";
 import type { LineLayoutLine } from "./lineLayout";
+import { drawBeatMarks, drawBeatText, drawMeasureHeader, drawTies } from "./drawMeasureMarks";
 import { drawCapoLabel, drawChordLabel, drawFlagRuns, drawNote, drawRhythmStem, resolveHammerDirection } from "./drawTab";
 import {
   BOTTOM_MARGIN,
+  CAPO_LABEL_OFFSET,
   EFFECT_ROW_GAP,
   EFFECT_ROW_HEIGHT,
   LIGHT_PALETTE,
@@ -113,7 +115,7 @@ export function drawLinePreview(
     );
   });
 
-  drawCapoLabel(ctx, project.track.capo, palette);
+  drawCapoLabel(ctx, project.track.capo, palette, topOffset + TAB_TOP_MARGIN - CAPO_LABEL_OFFSET);
   ctx.restore();
 
   if (options.fadeTop || options.fadeBottom) {
@@ -205,10 +207,14 @@ function drawSingleLine(
 
   const flatBeats = line.measures.flatMap((measure) => measure.beats);
 
+  const geometry = { stringY, tabTopY, tabBottomY };
   for (const measure of line.measures) {
+    drawMeasureHeader(ctx, measure, geometry, palette);
     for (const { beat, x, flatIndex } of measure.beats) {
       drawRhythmStem(ctx, x, stemBaselineY, beat, palette);
       if (beat.chordRef) drawChordLabel(ctx, x, tabTopY, beat.chordRef, nonStandardTuning, palette);
+      if (beat.text) drawBeatText(ctx, x, tabTopY, beat.text, palette);
+      drawBeatMarks(ctx, beat, x, tabTopY, palette);
 
       if (beat.isRest) continue;
       for (const note of beat.notes) {
@@ -221,6 +227,7 @@ function drawSingleLine(
     }
   }
 
+  drawTies(ctx, flatBeats, stringY, palette);
   drawFlagRuns(ctx, flatBeats, palmMuteRowY, "PM", (beat) => Boolean(beat.palmMute), palette);
   drawFlagRuns(ctx, flatBeats, letRingRowY, "let ring", (beat) => Boolean(beat.letRing), palette);
 }

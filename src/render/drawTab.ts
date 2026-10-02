@@ -4,6 +4,7 @@ import type { TabLayout } from "./layout";
 import {
   ARTICULATION_FONT,
   BEAT_WIDTH,
+  CAPO_LABEL_OFFSET,
   CHORD_LABEL_FONT,
   CHORD_LABEL_OFFSET,
   EFFECT_LABEL_FONT,
@@ -15,6 +16,7 @@ import {
   TUNING_LABEL_WIDTH,
   type TabPalette,
 } from "./constants";
+import { drawBeatMarks, drawBeatText, drawMeasureHeader, drawTies } from "./drawMeasureMarks";
 
 export interface EditorVisual {
   cursor: { flatIndex: number; string: 1 | 2 | 3 | 4 | 5 | 6 };
@@ -130,7 +132,13 @@ export function drawNote(
   palette: TabPalette,
   tabTopY?: number,
 ) {
-  const label = note.dead ? "x" : note.ghost ? `(${note.fret})` : String(note.fret);
+  const label = note.dead
+    ? "x"
+    : note.harmonic
+      ? `<${note.fret}>`
+      : note.ghost || note.tie
+        ? `(${note.fret})`
+        : String(note.fret);
   ctx.font = FRET_NUMBER_FONT;
   const width = ctx.measureText(label).width;
 
@@ -428,13 +436,13 @@ export function drawChordLabel(
 }
 
 /** Section 9.2: printed once at the start of the tab when a capo is set. */
-export function drawCapoLabel(ctx: CanvasRenderingContext2D, capo: number, palette: TabPalette) {
+export function drawCapoLabel(ctx: CanvasRenderingContext2D, capo: number, palette: TabPalette, y = 4) {
   if (capo <= 0) return;
   ctx.font = TUNING_LABEL_FONT;
   ctx.fillStyle = palette.tuningLabel;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  ctx.fillText(`Capo ${capo}`, 2, 4);
+  ctx.fillText(`Capo ${capo}`, 2, y);
 }
 
 function columnBounds(layout: TabLayout, x: number) {
@@ -513,13 +521,17 @@ export function drawTab(
 
   drawStringLines(ctx, project, layout, palette);
   drawBarlines(ctx, layout, palette);
-  drawCapoLabel(ctx, project.track.capo, palette);
+  drawCapoLabel(ctx, project.track.capo, palette, layout.tabTopY - CAPO_LABEL_OFFSET);
   const nonStandardTuning = !isStandardTuning(project.track.tuning);
 
+  const geometry = { stringY: layout.stringY, tabTopY: layout.tabTopY, tabBottomY: layout.tabBottomY };
   for (const measure of layout.measures) {
+    drawMeasureHeader(ctx, measure, geometry, palette);
     for (const { beat, x, flatIndex } of measure.beats) {
       drawRhythmStem(ctx, x, layout.stemBaselineY, beat, palette);
       if (beat.chordRef) drawChordLabel(ctx, x, layout.tabTopY, beat.chordRef, nonStandardTuning, palette);
+      if (beat.text) drawBeatText(ctx, x, layout.tabTopY, beat.text, palette);
+      drawBeatMarks(ctx, beat, x, layout.tabTopY, palette);
 
       if (beat.isRest) continue;
       for (const note of beat.notes) {
@@ -532,6 +544,7 @@ export function drawTab(
     }
   }
 
+  drawTies(ctx, layout.flatBeats, layout.stringY, palette);
   drawFlagRuns(ctx, layout.flatBeats, layout.palmMuteRowY, "PM", (beat) => Boolean(beat.palmMute), palette);
   drawFlagRuns(ctx, layout.flatBeats, layout.letRingRowY, "let ring", (beat) => Boolean(beat.letRing), palette);
 

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Beat, BendPreset, Note, SlideType } from "../model/types";
 import { SkeuButton } from "./ui/SkeuButton";
@@ -16,6 +17,12 @@ interface EffectPaletteProps {
   onToggleGhost: () => void;
   onTogglePalmMute: () => void;
   onToggleLetRing: () => void;
+  onToggleTie: () => void;
+  onToggleHarmonic: () => void;
+  onToggleBeatMark: (mark: "fermata" | "staccato" | "trill") => void;
+  onToggleAccent: (level: "normal" | "heavy") => void;
+  onTogglePickStroke: (direction: "down" | "up") => void;
+  onEditText: () => void;
   onClearEffects: () => void;
 }
 
@@ -31,9 +38,37 @@ export function EffectPalette({
   onToggleGhost,
   onTogglePalmMute,
   onToggleLetRing,
+  onToggleTie,
+  onToggleHarmonic,
+  onToggleBeatMark,
+  onToggleAccent,
+  onTogglePickStroke,
+  onEditText,
   onClearEffects,
 }: EffectPaletteProps) {
   const { t } = useTranslation();
+  const [showMore, setShowMore] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showMore) return;
+    function onPointerDown(event: PointerEvent) {
+      if (moreRef.current && !moreRef.current.contains(event.target as Node)) setShowMore(false);
+    }
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, [showMore]);
+
+  const hasMoreActive = Boolean(
+    note?.tie ||
+      note?.harmonic ||
+      beat?.accent ||
+      beat?.staccato ||
+      beat?.fermata ||
+      beat?.trill ||
+      beat?.pickStroke ||
+      beat?.text,
+  );
 
   return (
     <div className="raised flex flex-wrap items-center gap-3 rounded-2xl p-4 text-xs w-full">
@@ -91,12 +126,63 @@ export function EffectPalette({
         <SkeuButton title="O" onClick={onToggleGhost} active={Boolean(note?.ghost)} className="text-xs px-2 py-1">
           {t("effectPalette.ghost")}
         </SkeuButton>
-        <SkeuButton title="[" onClick={onTogglePalmMute} active={Boolean(beat?.palmMute)} className="text-xs px-2 py-1">
+        <SkeuButton title="P" onClick={onTogglePalmMute} active={Boolean(beat?.palmMute)} className="text-xs px-2 py-1">
           {t("effectPalette.palmMute")}
         </SkeuButton>
         <SkeuButton title="I" onClick={onToggleLetRing} active={Boolean(beat?.letRing)} className="text-xs px-2 py-1">
           {t("effectPalette.letRing")}
         </SkeuButton>
+      </div>
+
+      <span className="text-[var(--body-edge)]">|</span>
+
+      {/* Guitar Pro style notation marks live in a popover so the palette stays one row tall */}
+      <div ref={moreRef} className="relative">
+        <SkeuButton
+          title={t("effectPalette.moreTitle")}
+          onClick={() => setShowMore((value) => !value)}
+          active={showMore || hasMoreActive}
+          className="text-xs px-2.5 py-1"
+        >
+          {t("effectPalette.more")} ▴
+        </SkeuButton>
+        {showMore ? (
+          <div
+            className="raised absolute bottom-full left-0 z-30 mb-2 flex w-max max-w-[34rem] flex-wrap items-center gap-1.5 rounded-2xl p-3"
+            style={{ background: "var(--body)" }}
+          >
+            <SkeuButton title="L" onClick={onToggleTie} active={Boolean(note?.tie)} className="text-xs px-2 py-1">
+              {t("effectPalette.tie")}
+            </SkeuButton>
+            <SkeuButton title="Y" onClick={onToggleHarmonic} active={Boolean(note?.harmonic)} className="text-xs px-2 py-1">
+              {t("effectPalette.harmonic")}
+            </SkeuButton>
+            <SkeuButton title="Shift+;" onClick={() => onToggleAccent("heavy")} active={beat?.accent === "heavy"} className="text-xs px-2 py-1">
+              {t("effectPalette.heavyAccent")}
+            </SkeuButton>
+            <SkeuButton title=";" onClick={() => onToggleAccent("normal")} active={beat?.accent === "normal"} className="text-xs px-2 py-1">
+              {t("effectPalette.accent")}
+            </SkeuButton>
+            <SkeuButton title="!" onClick={() => onToggleBeatMark("staccato")} active={Boolean(beat?.staccato)} className="text-xs px-2 py-1">
+              {t("effectPalette.staccato")}
+            </SkeuButton>
+            <SkeuButton title="F" onClick={() => onToggleBeatMark("fermata")} active={Boolean(beat?.fermata)} className="text-xs px-2 py-1">
+              {t("effectPalette.fermata")}
+            </SkeuButton>
+            <SkeuButton title="N" onClick={() => onToggleBeatMark("trill")} active={Boolean(beat?.trill)} className="text-xs px-2 py-1">
+              {t("effectPalette.trill")}
+            </SkeuButton>
+            <SkeuButton title="Shift+D" onClick={() => onTogglePickStroke("down")} active={beat?.pickStroke === "down"} className="text-xs px-2 py-1">
+              {t("effectPalette.pickDown")}
+            </SkeuButton>
+            <SkeuButton title="Shift+U" onClick={() => onTogglePickStroke("up")} active={beat?.pickStroke === "up"} className="text-xs px-2 py-1">
+              {t("effectPalette.pickUp")}
+            </SkeuButton>
+            <SkeuButton title="T" onClick={onEditText} active={Boolean(beat?.text)} className="text-xs px-2 py-1">
+              {t("effectPalette.text")}
+            </SkeuButton>
+          </div>
+        ) : null}
       </div>
 
       <span className="text-[var(--body-edge)]">|</span>

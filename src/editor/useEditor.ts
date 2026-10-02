@@ -79,12 +79,29 @@ export function useEditor(initialProject: Project) {
         dispatch({ type: "DUPLICATE_MEASURE" });
         return;
       }
+      // Guitar Pro: Ctrl+Insert / Ctrl+Delete insert / delete a bar (Ctrl+M / Ctrl+Shift+M stay as aliases).
+      if (mod && key === "Insert") {
+        event.preventDefault();
+        dispatch({ type: "INSERT_MEASURE" });
+        return;
+      }
       if (mod && key === "Delete") {
         event.preventDefault();
-        dispatch({ type: "DELETE_BEAT" });
+        dispatch({ type: "DELETE_MEASURE" });
+        return;
+      }
+      if (mod && (key === "Home" || key === "End")) {
+        event.preventDefault();
+        dispatch({ type: "GOTO_MEASURE", measureIndex: key === "Home" ? 0 : Number.MAX_SAFE_INTEGER });
         return;
       }
       if (mod) return;
+
+      if (altKey && (key === "ArrowLeft" || key === "ArrowRight")) {
+        event.preventDefault();
+        dispatch({ type: "GOTO_SECTION", direction: key === "ArrowLeft" ? "previous" : "next" });
+        return;
+      }
 
       if (key in DURATION_BY_FUNCTION_KEY) {
         event.preventDefault();
@@ -106,10 +123,13 @@ export function useEditor(initialProject: Project) {
       }
       if (key === "Delete") {
         event.preventDefault();
-        dispatch({ type: "DELETE" });
+        // Guitar Pro: Shift+Delete removes the beat(s) itself, Delete only clears the note.
+        dispatch({ type: shiftKey ? "DELETE_BEAT" : "DELETE" });
         return;
       }
       if (key === "Insert") {
+        // Shift+Insert is the section prompt (App.tsx owns it).
+        if (shiftKey) return;
         event.preventDefault();
         dispatch({ type: "INSERT_BEAT" });
         return;
@@ -124,9 +144,19 @@ export function useEditor(initialProject: Project) {
         dispatch({ type: "TOGGLE_DOTTED" });
         return;
       }
-      if (key.toLowerCase() === "t") {
+      if (key === "/") {
         event.preventDefault();
         dispatch({ type: "TOGGLE_TUPLET" });
+        return;
+      }
+      if (key === "+" || key === "=") {
+        event.preventDefault();
+        dispatch({ type: "STEP_DURATION", direction: "longer" });
+        return;
+      }
+      if (key === "-" || key === "_") {
+        event.preventDefault();
+        dispatch({ type: "STEP_DURATION", direction: "shorter" });
         return;
       }
       if (key.toLowerCase() === "r") {
@@ -166,7 +196,57 @@ export function useEditor(initialProject: Project) {
       }
       if (key === "[") {
         event.preventDefault();
+        dispatch({ type: "TOGGLE_REPEAT_START" });
+        return;
+      }
+      if (key === "]") {
+        event.preventDefault();
+        dispatch({ type: "TOGGLE_REPEAT_END" });
+        return;
+      }
+      if (key.toLowerCase() === "p") {
+        event.preventDefault();
         dispatch({ type: "TOGGLE_PALM_MUTE" });
+        return;
+      }
+      if (key.toLowerCase() === "l") {
+        event.preventDefault();
+        dispatch({ type: "TOGGLE_TIE" });
+        return;
+      }
+      if (key.toLowerCase() === "y") {
+        event.preventDefault();
+        dispatch({ type: "TOGGLE_HARMONIC" });
+        return;
+      }
+      if (key.toLowerCase() === "f") {
+        event.preventDefault();
+        dispatch({ type: "TOGGLE_BEAT_MARK", mark: "fermata" });
+        return;
+      }
+      if (key.toLowerCase() === "n") {
+        event.preventDefault();
+        dispatch({ type: "TOGGLE_BEAT_MARK", mark: "trill" });
+        return;
+      }
+      if (key === "!") {
+        event.preventDefault();
+        dispatch({ type: "TOGGLE_BEAT_MARK", mark: "staccato" });
+        return;
+      }
+      if (key === ";") {
+        event.preventDefault();
+        dispatch({ type: "TOGGLE_ACCENT", level: "normal" });
+        return;
+      }
+      if (key === ":") {
+        event.preventDefault();
+        dispatch({ type: "TOGGLE_ACCENT", level: "heavy" });
+        return;
+      }
+      if (shiftKey && (key === "D" || key === "U")) {
+        event.preventDefault();
+        dispatch({ type: "TOGGLE_PICK_STROKE", direction: key === "D" ? "down" : "up" });
         return;
       }
       if (key.toLowerCase() === "i") {
@@ -243,6 +323,27 @@ export function useEditor(initialProject: Project) {
   const setCapo = useCallback((capo: number) => dispatch({ type: "SET_CAPO", capo }), []);
   const setChordLabel = useCallback((label: string) => dispatch({ type: "SET_CHORD_LABEL", label }), []);
 
+  const toggleTie = useCallback(() => dispatch({ type: "TOGGLE_TIE" }), []);
+  const toggleHarmonic = useCallback(() => dispatch({ type: "TOGGLE_HARMONIC" }), []);
+  const toggleBeatMark = useCallback(
+    (mark: "fermata" | "staccato" | "trill") => dispatch({ type: "TOGGLE_BEAT_MARK", mark }),
+    [],
+  );
+  const toggleAccent = useCallback(
+    (level: "normal" | "heavy") => dispatch({ type: "TOGGLE_ACCENT", level }),
+    [],
+  );
+  const togglePickStroke = useCallback(
+    (direction: "down" | "up") => dispatch({ type: "TOGGLE_PICK_STROKE", direction }),
+    [],
+  );
+  const setBeatText = useCallback((text: string) => dispatch({ type: "SET_BEAT_TEXT", text }), []);
+  const toggleRepeatStart = useCallback(() => dispatch({ type: "TOGGLE_REPEAT_START" }), []);
+  const toggleRepeatEnd = useCallback(() => dispatch({ type: "TOGGLE_REPEAT_END" }), []);
+  const setRepeatCount = useCallback((count: number) => dispatch({ type: "SET_REPEAT_COUNT", count }), []);
+  const setSectionLabel = useCallback((label: string) => dispatch({ type: "SET_SECTION_LABEL", label }), []);
+  const gotoMeasure = useCallback((measureIndex: number) => dispatch({ type: "GOTO_MEASURE", measureIndex }), []);
+
   const undo = useCallback(() => dispatch({ type: "UNDO" }), []);
   const redo = useCallback(() => dispatch({ type: "REDO" }), []);
   const cut = useCallback(() => dispatch({ type: "CUT" }), []);
@@ -289,6 +390,17 @@ export function useEditor(initialProject: Project) {
     togglePalmMute,
     toggleLetRing,
     clearEffects,
+    toggleTie,
+    toggleHarmonic,
+    toggleBeatMark,
+    toggleAccent,
+    togglePickStroke,
+    setBeatText,
+    toggleRepeatStart,
+    toggleRepeatEnd,
+    setRepeatCount,
+    setSectionLabel,
+    gotoMeasure,
     setTuning,
     setTuningString,
     setCapo,

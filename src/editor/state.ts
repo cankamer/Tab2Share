@@ -21,12 +21,15 @@ import {
   pasteBeatsAt,
   removeNoteAtPosition,
   setBeatDuration,
+  setBeatText,
   setCapo,
   setChordAtPosition,
   setChordLabel,
   setNoteAtPosition,
   setProjectArtist,
   setProjectTitle,
+  setRepeatCount,
+  setSectionLabel,
   setDefaultTempo,
   setDefaultTimeSignature,
   setRestAtPosition,
@@ -34,11 +37,18 @@ import {
   setTimeSignatureFrom,
   setTuning,
   setTuningString,
+  toggleAccent,
   toggleBeatFlag,
+  toggleBeatMark,
   toggleDeadNote,
   toggleDotted,
   toggleGhostNote,
   toggleHammer,
+  toggleHarmonic,
+  togglePickStroke,
+  toggleRepeatEnd,
+  toggleRepeatStart,
+  toggleTie,
   toggleTuplet,
   transposeProject,
 } from "./mutations";
@@ -124,6 +134,19 @@ export type EditorAction =
   | { type: "SET_CAPO"; capo: number }
   | { type: "SET_CHORD_LABEL"; label: string }
   | { type: "SELECT_ALL" }
+  | { type: "TOGGLE_TIE" }
+  | { type: "TOGGLE_HARMONIC" }
+  | { type: "TOGGLE_BEAT_MARK"; mark: "fermata" | "staccato" | "trill" }
+  | { type: "TOGGLE_ACCENT"; level: "normal" | "heavy" }
+  | { type: "TOGGLE_PICK_STROKE"; direction: "down" | "up" }
+  | { type: "SET_BEAT_TEXT"; text: string }
+  | { type: "TOGGLE_REPEAT_START" }
+  | { type: "TOGGLE_REPEAT_END" }
+  | { type: "SET_REPEAT_COUNT"; count: number }
+  | { type: "SET_SECTION_LABEL"; label: string }
+  | { type: "STEP_DURATION"; direction: "longer" | "shorter" }
+  | { type: "GOTO_MEASURE"; measureIndex: number }
+  | { type: "GOTO_SECTION"; direction: "previous" | "next" }
   | { type: "SET_TITLE"; title: string }
   | { type: "SET_ARTIST"; artist: string }
   | { type: "SET_DEFAULT_TEMPO"; tempo: number }
@@ -183,6 +206,20 @@ function advanceCursorAfterEntry(state: EditorState, chordMode: boolean): Editor
   if (chordMode || !state.autoAdvance) return state;
   const flatLength = flattenBeats(state.project).length;
   return { ...state, cursor: { ...state.cursor, flatIndex: clampFlatIndex(state.cursor.flatIndex + 1, flatLength) } };
+}
+
+function currentBeatDuration(state: EditorState): Duration {
+  return flattenBeats(state.project)[state.cursor.flatIndex]?.beat.duration ?? state.activeDuration;
+}
+
+/** Moves the cursor to the first beat of `measureIndex` (clamped), keeping the current string. */
+function gotoMeasure(state: EditorState, measureIndex: number): EditorState {
+  const flat = flattenBeats(state.project);
+  if (flat.length === 0) return state;
+  const lastMeasure = state.project.track.measures.length - 1;
+  const target = Math.max(0, Math.min(lastMeasure, measureIndex));
+  const flatIndex = Math.max(0, flat.findIndex((ref) => ref.measureIndex >= target));
+  return { ...state, cursor: { ...state.cursor, flatIndex }, selectionAnchor: null };
 }
 
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
@@ -414,6 +451,64 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       const flat = flattenBeats(state.project);
       if (flat.length === 0) return state;
       return { ...state, selectionAnchor: 0, cursor: { ...state.cursor, flatIndex: flat.length - 1 } };
+    }
+
+    case "TOGGLE_TIE":
+      return withEdit(state, toggleTie(state.project, currentPosition(state), state.cursor.string));
+
+    case "TOGGLE_HARMONIC":
+      return withEdit(state, toggleHarmonic(state.project, currentPosition(state), state.cursor.string));
+
+    case "TOGGLE_BEAT_MARK":
+      return withEdit(state, toggleBeatMark(state.project, currentPosition(state), action.mark));
+
+    case "TOGGLE_ACCENT":
+      return withEdit(state, toggleAccent(state.project, currentPosition(state), action.level));
+
+    case "TOGGLE_PICK_STROKE":
+      return withEdit(state, togglePickStroke(state.project, currentPosition(state), action.direction));
+
+    case "SET_BEAT_TEXT":
+      return withEdit(state, setBeatText(state.project, currentPosition(state), action.text));
+
+    case "TOGGLE_REPEAT_START":
+      return withEdit(state, toggleRepeatStart(state.project, currentMeasureIndex(state)));
+
+    case "TOGGLE_REPEAT_END":
+      return withEdit(state, toggleRepeatEnd(state.project, currentMeasureIndex(state)));
+
+    case "SET_REPEAT_COUNT":
+      return withEdit(state, setRepeatCount(state.project, currentMeasureIndex(state), action.count));
+
+    case "SET_SECTION_LABEL":
+      return withEdit(state, setSectionLabel(state.project, currentMeasureIndex(state), action.label));
+
+    case "STEP_DURATION": {
+      const order: Duration[] = [1, 2, 4, 8, 16, 32];
+      const current = order.indexOf(currentBeatDuration(state));
+      const next = order[Math.max(0, Math.min(order.length - 1, current + (action.direction === "longer" ? -1 : 1)))];
+      const project = setBeatDuration(state.project, currentPosition(state), next);
+      return { ...withEdit(state, project), activeDuration: next };
+    }
+
+    case "GOTO_MEASURE":
+      return gotoMeasure(state, action.measureIndex);
+
+    case "GOTO_SECTION": {
+      const measures = state.project.track.measures;
+      const here = currentMeasureIndex(state);
+      let target = -1;
+      if (action.direction === "next") {
+        target = measures.findIndex((measure, index) => index > here && measure.sectionLabel);
+      } else {
+        for (let i = here - 1; i >= 0; i--) {
+          if (measures[i].sectionLabel) {
+            target = i;
+            break;
+          }
+        }
+      }
+      return target < 0 ? state : gotoMeasure(state, target);
     }
 
     case "SET_TITLE":

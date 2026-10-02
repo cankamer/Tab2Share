@@ -30,8 +30,11 @@ import { PreferencesModal } from "./menu/PreferencesModal";
 import { AboutModal } from "./menu/AboutModal";
 import { InfoModal } from "./menu/InfoModal";
 import { ExportModal } from "./editor/ExportModal";
+import { PromptModal } from "./editor/ui/PromptModal";
 import { NeumorphicScrollbar } from "./editor/ui/NeumorphicScrollbar";
 import type { BendPreset, Duration, SlideType } from "./model/types";
+
+type PromptKind = "section" | "text" | "gotoBar";
 
 type ModalKind = "shortcuts" | "projectSettings" | "preferences" | "about" | "gettingStarted" | "notationGuide" | "exportPng" | null;
 
@@ -71,6 +74,18 @@ function App() {
     togglePalmMute,
     toggleLetRing,
     clearEffects,
+    toggleTie,
+    toggleHarmonic,
+    toggleBeatMark,
+    toggleAccent,
+    togglePickStroke,
+    setBeatText,
+    toggleRepeatStart,
+    toggleRepeatEnd,
+    setRepeatCount,
+    setSectionLabel,
+    gotoMeasure,
+    dispatch,
     setTuning,
     setTuningString,
     setCapo,
@@ -99,6 +114,7 @@ function App() {
   const [showEffectPalette, setShowEffectPalette] = useState(true);
   const [lineBreakMode, setLineBreakMode] = useState<LineBreakMode>({ kind: "auto" });
   const [modal, setModal] = useState<ModalKind>(null);
+  const [prompt, setPrompt] = useState<PromptKind | null>(null);
   const [showWelcome, setShowWelcome] = useState(true);
   const [showTour, setShowTour] = useState(false);
   const tabScrollContainerRef = useRef<HTMLDivElement>(null);
@@ -109,11 +125,15 @@ function App() {
   }, [themeChoice]);
 
   useEffect(() => {
-    getCurrentWindow()
-      .maximize()
-      .catch(() => {
-        // Ignore when running outside Tauri desktop container or lacking permission
-      });
+    try {
+      getCurrentWindow()
+        .maximize()
+        .catch(() => {
+          // Ignore when running outside Tauri desktop container or lacking permission
+        });
+    } catch {
+      // getCurrentWindow() throws synchronously outside a Tauri context (e.g. `vite dev` in a plain browser).
+    }
   }, []);
 
   useEffect(() => {
@@ -231,6 +251,7 @@ function App() {
   const measureIndex = flat[state.cursor.flatIndex]?.measureIndex ?? 0;
   const effectiveSettings = resolveEffectiveSettings(state.project, measureIndex);
   const cursorNote = cursorBeat?.notes.find((note) => note.string === state.cursor.string);
+  const cursorMeasure = state.project.track.measures[measureIndex];
 
   const nonStandardTuning = !isStandardTuning(state.project.track.tuning);
   const hoveredBeat = hoveredFlatIndex !== null ? flat[hoveredFlatIndex]?.beat : undefined;
@@ -271,6 +292,14 @@ function App() {
     }
   }, [confirmDiscard, projectFile.dirty, state.project.title]);
 
+  const focusTimeSignature = useCallback(() => {
+    const input = document.getElementById("time-signature-num");
+    if (input instanceof HTMLInputElement) {
+      input.focus();
+      input.select();
+    }
+  }, []);
+
   // Section 8's chrome-level shortcuts (File/View/Help) — separate from useEditor's own
   // keydown handler, which owns note-entry and structural-editing shortcuts only.
   useEffect(() => {
@@ -285,8 +314,31 @@ function App() {
       if (isTextInput) return;
 
       const mod = event.ctrlKey || event.metaKey;
-      if (!mod) return;
       const key = event.key.toLowerCase();
+
+      // Guitar Pro's prompt shortcuts: T = text, Shift+Insert = section, Ctrl+G = go to bar, Ctrl+T = time signature.
+      if (!mod && !event.altKey && key === "t") {
+        event.preventDefault();
+        setPrompt("text");
+        return;
+      }
+      if (!mod && !event.altKey && event.shiftKey && event.key === "Insert") {
+        event.preventDefault();
+        setPrompt("section");
+        return;
+      }
+      if (mod && key === "g") {
+        event.preventDefault();
+        setPrompt("gotoBar");
+        return;
+      }
+      if (mod && key === "t") {
+        event.preventDefault();
+        focusTimeSignature();
+        return;
+      }
+
+      if (!mod) return;
 
       if (key === "n") {
         event.preventDefault();
@@ -334,7 +386,7 @@ function App() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [projectFile, showWelcome]);
+  }, [focusTimeSignature, projectFile, showWelcome]);
 
   if (showWelcome) {
     return (
@@ -442,7 +494,7 @@ function App() {
           <MenuSeparator />
           <MenuItem
             label={t("menu.edit.insertMeasure")}
-            shortcut="Ctrl+M"
+            shortcut="Ctrl+Insert"
             onClick={insertMeasure}
             disabled={state.readOnly}
             disabledReason={t("disabledReasons.readOnly")}
@@ -456,7 +508,7 @@ function App() {
           />
           <MenuItem
             label={t("menu.edit.deleteMeasure")}
-            shortcut="Ctrl+Shift+M"
+            shortcut="Ctrl+Delete"
             onClick={deleteMeasure}
             disabled={state.readOnly}
             disabledReason={t("disabledReasons.readOnly")}
@@ -505,7 +557,7 @@ function App() {
             />
             <MenuItem
               label={t("durationSelector.triplet")}
-              shortcut="T"
+              shortcut="/"
               checked={Boolean(cursorBeat?.tuplet)}
               onClick={toggleTuplet}
             />
@@ -565,7 +617,7 @@ function App() {
           />
           <MenuItem
             label={t("menu.note.palmMute")}
-            shortcut="["
+            shortcut="P"
             checked={Boolean(cursorBeat?.palmMute)}
             onClick={togglePalmMute}
           />
@@ -576,7 +628,112 @@ function App() {
             onClick={toggleLetRing}
           />
           <MenuSeparator />
+          <MenuItem label={t("menu.note.tie")} shortcut="L" checked={Boolean(cursorNote?.tie)} onClick={toggleTie} />
+          <MenuItem
+            label={t("menu.note.harmonic")}
+            shortcut="Y"
+            checked={Boolean(cursorNote?.harmonic)}
+            onClick={toggleHarmonic}
+          />
+          <MenuItem
+            label={t("menu.note.accent")}
+            shortcut=";"
+            checked={cursorBeat?.accent === "normal"}
+            onClick={() => toggleAccent("normal")}
+          />
+          <MenuItem
+            label={t("menu.note.heavyAccent")}
+            shortcut="Shift+;"
+            checked={cursorBeat?.accent === "heavy"}
+            onClick={() => toggleAccent("heavy")}
+          />
+          <MenuItem
+            label={t("menu.note.staccato")}
+            shortcut="!"
+            checked={Boolean(cursorBeat?.staccato)}
+            onClick={() => toggleBeatMark("staccato")}
+          />
+          <MenuItem
+            label={t("menu.note.fermata")}
+            shortcut="F"
+            checked={Boolean(cursorBeat?.fermata)}
+            onClick={() => toggleBeatMark("fermata")}
+          />
+          <MenuItem
+            label={t("menu.note.trill")}
+            shortcut="N"
+            checked={Boolean(cursorBeat?.trill)}
+            onClick={() => toggleBeatMark("trill")}
+          />
+          <MenuItem
+            label={t("menu.note.pickDown")}
+            shortcut="Shift+D"
+            checked={cursorBeat?.pickStroke === "down"}
+            onClick={() => togglePickStroke("down")}
+          />
+          <MenuItem
+            label={t("menu.note.pickUp")}
+            shortcut="Shift+U"
+            checked={cursorBeat?.pickStroke === "up"}
+            onClick={() => togglePickStroke("up")}
+          />
+          <MenuItem
+            label={t("menu.note.text")}
+            shortcut="T"
+            checked={Boolean(cursorBeat?.text)}
+            onClick={() => setPrompt("text")}
+          />
+          <MenuSeparator />
           <MenuItem label={t("menu.note.clearEffects")} shortcut="Ctrl+Shift+X" onClick={clearEffects} />
+        </MenuRoot>
+
+        <MenuRoot
+          id="bar"
+          label={t("menu.bar.label")}
+          disabled={state.readOnly}
+          disabledReason={t("disabledReasons.readOnly")}
+        >
+          <MenuItem label={t("menu.edit.insertMeasure")} shortcut="Ctrl+Insert" onClick={insertMeasure} />
+          <MenuItem label={t("menu.edit.duplicateMeasure")} shortcut="Ctrl+D" onClick={duplicateMeasure} />
+          <MenuItem label={t("menu.edit.deleteMeasure")} shortcut="Ctrl+Delete" onClick={deleteMeasure} />
+          <MenuSeparator />
+          <MenuItem label={t("menu.bar.timeSignature")} shortcut="Ctrl+T" onClick={focusTimeSignature} />
+          <MenuItem
+            label={t("menu.bar.repeatOpen")}
+            shortcut="["
+            checked={Boolean(cursorMeasure?.repeatStart)}
+            onClick={toggleRepeatStart}
+          />
+          <MenuItem
+            label={t("menu.bar.repeatClose")}
+            shortcut="]"
+            checked={cursorMeasure?.repeatEnd !== undefined}
+            onClick={toggleRepeatEnd}
+          />
+          <MenuItem
+            label={t("menu.bar.section")}
+            shortcut="Shift+Insert"
+            checked={Boolean(cursorMeasure?.sectionLabel)}
+            onClick={() => setPrompt("section")}
+          />
+          <MenuSeparator />
+          <MenuItem label={t("menu.bar.goTo")} shortcut="Ctrl+G" onClick={() => setPrompt("gotoBar")} />
+          <MenuItem label={t("menu.bar.firstBar")} shortcut="Ctrl+Home" onClick={() => gotoMeasure(0)} />
+          <MenuItem
+            label={t("menu.bar.lastBar")}
+            shortcut="Ctrl+End"
+            onClick={() => gotoMeasure(Number.MAX_SAFE_INTEGER)}
+          />
+          <MenuItem
+            label={t("menu.bar.previousSection")}
+            shortcut="Alt+←"
+            onClick={() => dispatch({ type: "GOTO_SECTION", direction: "previous" })}
+          />
+          <MenuItem
+            label={t("menu.bar.nextSection")}
+            shortcut="Alt+→"
+            onClick={() => dispatch({ type: "GOTO_SECTION", direction: "next" })}
+          />
         </MenuRoot>
 
         <MenuRoot id="view" label={t("menu.view.label")}>
@@ -721,6 +878,13 @@ function App() {
               measureIndex={measureIndex}
               tempo={effectiveSettings.tempo}
               timeSignature={effectiveSettings.timeSignature}
+              repeatStart={Boolean(cursorMeasure?.repeatStart)}
+              repeatEnd={cursorMeasure?.repeatEnd}
+              sectionLabel={cursorMeasure?.sectionLabel}
+              onToggleRepeatStart={toggleRepeatStart}
+              onToggleRepeatEnd={toggleRepeatEnd}
+              onSetRepeatCount={setRepeatCount}
+              onEditSection={() => setPrompt("section")}
               onInsertMeasure={insertMeasure}
               onDuplicateMeasure={duplicateMeasure}
               onDeleteMeasure={deleteMeasure}
@@ -754,7 +918,7 @@ function App() {
           <div className="relative flex-1 min-h-0 w-full rounded-xl overflow-hidden tab-screen">
             <div
               ref={tabScrollContainerRef}
-              className="w-full h-full flex flex-col justify-center items-start pl-3.5 sm:pl-4 py-2 pr-4 overflow-x-auto overflow-y-hidden tab-scrollbar"
+              className="w-full h-full flex flex-col justify-center items-start pl-3.5 sm:pl-4 py-1 pr-4 overflow-x-auto overflow-y-hidden tab-scrollbar"
             >
               <div
                 style={{
@@ -806,6 +970,12 @@ function App() {
             onToggleGhost={toggleGhost}
             onTogglePalmMute={togglePalmMute}
             onToggleLetRing={toggleLetRing}
+            onToggleTie={toggleTie}
+            onToggleHarmonic={toggleHarmonic}
+            onToggleBeatMark={toggleBeatMark}
+            onToggleAccent={toggleAccent}
+            onTogglePickStroke={togglePickStroke}
+            onEditText={() => setPrompt("text")}
             onClearEffects={clearEffects}
           />
         ) : null}
@@ -824,6 +994,40 @@ function App() {
           lineBreakMode={lineBreakMode}
           onLineBreakModeChange={setLineBreakMode}
           onClose={() => setModal(null)}
+        />
+      ) : null}
+      {prompt === "section" ? (
+        <PromptModal
+          title={t("prompt.sectionTitle")}
+          label={t("prompt.sectionLabel")}
+          placeholder={t("prompt.sectionPlaceholder")}
+          initialValue={cursorMeasure?.sectionLabel ?? ""}
+          removeLabel={t("prompt.remove")}
+          onSubmit={setSectionLabel}
+          onClose={() => setPrompt(null)}
+        />
+      ) : null}
+      {prompt === "text" ? (
+        <PromptModal
+          title={t("prompt.textTitle")}
+          label={t("prompt.textLabel")}
+          initialValue={cursorBeat?.text ?? ""}
+          removeLabel={t("prompt.remove")}
+          onSubmit={setBeatText}
+          onClose={() => setPrompt(null)}
+        />
+      ) : null}
+      {prompt === "gotoBar" ? (
+        <PromptModal
+          title={t("prompt.gotoTitle")}
+          label={t("prompt.gotoLabel", { count: state.project.track.measures.length })}
+          inputType="number"
+          initialValue={String(measureIndex + 1)}
+          onSubmit={(value) => {
+            const bar = parseInt(value, 10);
+            if (!isNaN(bar)) gotoMeasure(bar - 1);
+          }}
+          onClose={() => setPrompt(null)}
         />
       ) : null}
       {modal === "shortcuts" ? <ShortcutsModal onClose={() => setModal(null)} /> : null}

@@ -51,7 +51,8 @@ export function useMenuBarControl() {
   return useMenuBarContext();
 }
 
-const MNEMONICS: Record<string, string> = { f: "file", e: "edit", n: "note", v: "view", h: "help" };
+// View is on "w" rather than "v": Alt+V is Guitar Pro's wide-vibrato shortcut and must reach the editor.
+const MNEMONICS: Record<string, string> = { f: "file", e: "edit", n: "note", b: "bar", w: "view", h: "help" };
 
 /**
  * Section 8: "Alt tuşu ile menü klavyeden açılır (Alt+F dosya menüsü, vb.)". Mnemonics stay

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Modal } from "../editor/ui/Modal";
 import { SkeuInput } from "../editor/ui/SkeuInput";
 
-type Category = "navigation" | "noteEntry" | "effects" | "editing" | "file" | "view";
+type Category = "navigation" | "noteEntry" | "bar" | "effects" | "editing" | "file" | "view";
 
 interface ShortcutEntry {
   category: Category;
@@ -17,16 +17,31 @@ const ENTRIES: ShortcutEntry[] = [
   { category: "navigation", labelKey: "shortcuts.items.measureHome", shortcut: "Home" },
   { category: "navigation", labelKey: "shortcuts.items.measureEnd", shortcut: "End" },
   { category: "navigation", labelKey: "shortcuts.items.confirmDigit", shortcut: "Enter" },
+  { category: "navigation", labelKey: "shortcuts.items.firstBar", shortcut: "Ctrl + Home" },
+  { category: "navigation", labelKey: "shortcuts.items.lastBar", shortcut: "Ctrl + End" },
+  { category: "navigation", labelKey: "shortcuts.items.goToBar", shortcut: "Ctrl + G" },
+  { category: "navigation", labelKey: "shortcuts.items.previousSection", shortcut: "Alt + ←" },
+  { category: "navigation", labelKey: "shortcuts.items.nextSection", shortcut: "Alt + →" },
 
   { category: "noteEntry", labelKey: "shortcuts.items.fretNumber", shortcut: "0-9" },
   { category: "noteEntry", labelKey: "shortcuts.items.chordModeDigit", shortcut: "Shift + 0-9" },
   { category: "noteEntry", labelKey: "shortcuts.items.insertBeat", shortcut: "Insert" },
   { category: "noteEntry", labelKey: "shortcuts.items.deleteNote", shortcut: "Delete" },
-  { category: "noteEntry", labelKey: "shortcuts.items.deleteBeat", shortcut: "Ctrl + Delete" },
+  { category: "noteEntry", labelKey: "shortcuts.items.deleteBeat", shortcut: "Shift + Delete" },
   { category: "noteEntry", labelKey: "shortcuts.items.rest", shortcut: "R" },
   { category: "noteEntry", labelKey: "menu.note.duration", shortcut: "F1-F6" },
   { category: "noteEntry", labelKey: "shortcuts.items.dotted", shortcut: "." },
-  { category: "noteEntry", labelKey: "shortcuts.items.triplet", shortcut: "T" },
+  { category: "noteEntry", labelKey: "shortcuts.items.triplet", shortcut: "/" },
+  { category: "noteEntry", labelKey: "shortcuts.items.durationStep", shortcut: "+ / -" },
+  { category: "noteEntry", labelKey: "shortcuts.items.text", shortcut: "T" },
+
+  { category: "bar", labelKey: "menu.edit.insertMeasure", shortcut: "Ctrl + Insert" },
+  { category: "bar", labelKey: "menu.edit.deleteMeasure", shortcut: "Ctrl + Delete" },
+  { category: "bar", labelKey: "menu.edit.duplicateMeasure", shortcut: "Ctrl + D" },
+  { category: "bar", labelKey: "shortcuts.items.timeSignature", shortcut: "Ctrl + T" },
+  { category: "bar", labelKey: "shortcuts.items.repeatOpen", shortcut: "[" },
+  { category: "bar", labelKey: "shortcuts.items.repeatClose", shortcut: "]" },
+  { category: "bar", labelKey: "shortcuts.items.section", shortcut: "Shift + Insert" },
 
   { category: "effects", labelKey: "shortcuts.items.bendFull", shortcut: "B" },
   { category: "effects", labelKey: "shortcuts.items.vibratoNormal", shortcut: "V" },
@@ -36,7 +51,16 @@ const ENTRIES: ShortcutEntry[] = [
   { category: "effects", labelKey: "shortcuts.items.hammerPull", shortcut: "H" },
   { category: "effects", labelKey: "shortcuts.items.deadNote", shortcut: "X" },
   { category: "effects", labelKey: "shortcuts.items.ghostNote", shortcut: "O" },
-  { category: "effects", labelKey: "shortcuts.items.palmMute", shortcut: "[" },
+  { category: "effects", labelKey: "shortcuts.items.palmMute", shortcut: "P" },
+  { category: "effects", labelKey: "shortcuts.items.tie", shortcut: "L" },
+  { category: "effects", labelKey: "shortcuts.items.harmonic", shortcut: "Y" },
+  { category: "effects", labelKey: "shortcuts.items.accent", shortcut: ";" },
+  { category: "effects", labelKey: "shortcuts.items.heavyAccent", shortcut: "Shift + ;" },
+  { category: "effects", labelKey: "shortcuts.items.staccato", shortcut: "!" },
+  { category: "effects", labelKey: "shortcuts.items.fermata", shortcut: "F" },
+  { category: "effects", labelKey: "shortcuts.items.trill", shortcut: "N" },
+  { category: "effects", labelKey: "shortcuts.items.pickDown", shortcut: "Shift + D" },
+  { category: "effects", labelKey: "shortcuts.items.pickUp", shortcut: "Shift + U" },
   { category: "effects", labelKey: "shortcuts.items.letRing", shortcut: "I" },
   { category: "effects", labelKey: "shortcuts.items.clearEffects", shortcut: "Ctrl + Shift + X" },
 
@@ -46,9 +70,6 @@ const ENTRIES: ShortcutEntry[] = [
   { category: "editing", labelKey: "menu.edit.copy", shortcut: "Ctrl + C" },
   { category: "editing", labelKey: "menu.edit.paste", shortcut: "Ctrl + V" },
   { category: "editing", labelKey: "menu.edit.selectAll", shortcut: "Ctrl + A" },
-  { category: "editing", labelKey: "menu.edit.insertMeasure", shortcut: "Ctrl + M" },
-  { category: "editing", labelKey: "menu.edit.duplicateMeasure", shortcut: "Ctrl + D" },
-  { category: "editing", labelKey: "menu.edit.deleteMeasure", shortcut: "Ctrl + Shift + M" },
   { category: "editing", labelKey: "menu.edit.transposeUp", shortcut: "Ctrl + ↑" },
   { category: "editing", labelKey: "menu.edit.transposeDown", shortcut: "Ctrl + ↓" },
   { category: "editing", labelKey: "menu.edit.preferences", shortcut: "Ctrl + ," },
@@ -70,7 +91,7 @@ const ENTRIES: ShortcutEntry[] = [
   { category: "view", labelKey: "menu.help.keyboardShortcuts", shortcut: "Ctrl + /" },
 ];
 
-const CATEGORY_ORDER: Category[] = ["navigation", "noteEntry", "effects", "editing", "file", "view"];
+const CATEGORY_ORDER: Category[] = ["navigation", "noteEntry", "bar", "effects", "editing", "file", "view"];
 
 /**
  * Help > Keyboard shortcuts (section 8): a searchable, categorized modal. Keys are drawn as

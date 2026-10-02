@@ -8,6 +8,13 @@ interface MeasureControlsProps {
   measureIndex: number;
   tempo: number;
   timeSignature: { num: number; den: number };
+  repeatStart: boolean;
+  repeatEnd: number | undefined;
+  sectionLabel: string | undefined;
+  onToggleRepeatStart: () => void;
+  onToggleRepeatEnd: () => void;
+  onSetRepeatCount: (count: number) => void;
+  onEditSection: () => void;
   onInsertMeasure: () => void;
   onDuplicateMeasure: () => void;
   onDeleteMeasure: () => void;
@@ -29,6 +36,13 @@ export function MeasureControls({
   measureIndex,
   tempo,
   timeSignature,
+  repeatStart,
+  repeatEnd,
+  sectionLabel,
+  onToggleRepeatStart,
+  onToggleRepeatEnd,
+  onSetRepeatCount,
+  onEditSection,
   onInsertMeasure,
   onDuplicateMeasure,
   onDeleteMeasure,
@@ -192,6 +206,8 @@ export function MeasureControls({
             onBlur={() => {
               setLocalNum(timeSignature.num.toString());
             }}
+            id="time-signature-num"
+            title="Ctrl+T"
             className="h-7 w-10 text-center font-mono text-xs !py-0"
           />
           <span className="text-xs text-[var(--label)]/80">/</span>
@@ -206,6 +222,56 @@ export function MeasureControls({
             }}
             className="h-7 w-10 text-center font-mono text-xs !py-0"
           />
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div className="hidden sm:block h-6 w-px bg-[var(--shadow-dark)]/15 self-end mb-0.5 shrink-0" />
+
+      {/* Repeat + Section Group (Guitar Pro: [ ] and Shift+Insert) */}
+      <div className="flex flex-col gap-1 shrink-0">
+        <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--label)]/70">
+          {t("measureControls.repeatGroup", "Repeat")}
+        </span>
+        <div className="flex items-center gap-1.5 h-7">
+          <SkeuButton
+            title={`${t("measureControls.repeatStart")} ([)`}
+            active={repeatStart}
+            onClick={onToggleRepeatStart}
+            className="h-7 px-2.5 font-mono text-xs font-bold !py-0 flex items-center justify-center"
+          >
+            |:
+          </SkeuButton>
+          <SkeuButton
+            title={`${t("measureControls.repeatEnd")} (])`}
+            active={repeatEnd !== undefined}
+            onClick={onToggleRepeatEnd}
+            className="h-7 px-2.5 font-mono text-xs font-bold !py-0 flex items-center justify-center"
+          >
+            :|
+          </SkeuButton>
+          {repeatEnd !== undefined ? (
+            <SkeuInput
+              type="number"
+              min={2}
+              max={99}
+              title={t("measureControls.repeatCount")}
+              value={repeatEnd}
+              onChange={(e) => {
+                const value = parseInt(e.target.value, 10);
+                if (!isNaN(value)) onSetRepeatCount(value);
+              }}
+              className="h-7 w-12 text-center font-mono text-xs !py-0"
+            />
+          ) : null}
+          <SkeuButton
+            title={`${t("measureControls.section")} (Shift+Insert)`}
+            active={sectionLabel !== undefined}
+            onClick={onEditSection}
+            className="h-7 max-w-[7rem] truncate px-2.5 text-xs font-medium !py-0 flex items-center justify-center"
+          >
+            {sectionLabel ?? t("measureControls.section")}
+          </SkeuButton>
         </div>
       </div>
     </div>

@@ -4,7 +4,16 @@ export const STRING_SPACING = 28;
 // stack never collides with the chord label above it (string 1 IS tabTopY, unlike every
 // other string row), and the "Capo N" label (drawn once, top-left) clears beat 0's own
 // chord label when both are present — a common combination, not a rare edge case.
-export const TAB_TOP_MARGIN = 80;
+// Grew from 80 to 96 to make room for the rows Guitar Pro prints above the staff: section
+// label and tempo (top), then free text, then the existing chord names.
+export const TAB_TOP_MARGIN = 96;
+/** Offsets above the top string (tabTopY) for the measure-header rows. */
+export const SECTION_ROW_TOP = 95; // top edge of the section box
+export const TEMPO_ROW_OFFSET = 69; // vertical center of the "♩ = N" marker
+export const TEXT_ROW_OFFSET = 58; // vertical center of beat text
+export const BEAT_MARK_OFFSET = 16; // center of accent/staccato/fermata/pick-stroke glyphs
+export const MEASURE_NUMBER_OFFSET = 6; // baseline of the small measure number
+export const CAPO_LABEL_OFFSET = 36; // top of the "Capo N" label above the first string
 export const CHORD_LABEL_OFFSET = 40;
 export const TUNING_LABEL_WIDTH = 26;
 export const BEAT_WIDTH = 68;
@@ -23,6 +32,11 @@ export const TUNING_LABEL_FONT = "bold 13px sans-serif";
 export const CHORD_LABEL_FONT = "bold 18px sans-serif";
 export const EFFECT_LABEL_FONT = "bold 12px sans-serif";
 export const ARTICULATION_FONT = "bold 13px sans-serif";
+export const MEASURE_NUMBER_FONT = "10px sans-serif";
+export const SECTION_FONT = "bold 13px sans-serif";
+export const TEMPO_FONT = "bold 13px sans-serif";
+export const TIME_SIGNATURE_FONT = "bold 20px sans-serif";
+export const BEAT_TEXT_FONT = "italic 12px sans-serif";
 
 /**
  * Section 10's "two completely independent theme systems": the app's own look (section

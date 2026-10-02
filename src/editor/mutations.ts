@@ -347,9 +347,16 @@ export function clearNoteEffects(project: Project, position: BeatPosition, strin
     note.hammer = undefined;
     note.dead = undefined;
     note.ghost = undefined;
+    note.tie = undefined;
+    note.harmonic = undefined;
   }
   beat.palmMute = undefined;
   beat.letRing = undefined;
+  beat.fermata = undefined;
+  beat.accent = undefined;
+  beat.staccato = undefined;
+  beat.trill = undefined;
+  beat.pickStroke = undefined;
   return next;
 }
 
@@ -411,5 +418,91 @@ export function setDefaultTimeSignature(
 ): Project {
   const next = cloneProject(project);
   next.defaultTimeSignature = timeSignature;
+  return next;
+}
+
+/** [ (Guitar Pro "repeat open"): toggles the repeat-start sign on a measure. */
+export function toggleRepeatStart(project: Project, measureIndex: number): Project {
+  if (measureIndex < 0 || measureIndex >= project.track.measures.length) return project;
+  const next = cloneProject(project);
+  const measure = next.track.measures[measureIndex];
+  measure.repeatStart = measure.repeatStart ? undefined : true;
+  return next;
+}
+
+/** ] (Guitar Pro "repeat close"): toggles the repeat-end sign; a fresh one plays twice. */
+export function toggleRepeatEnd(project: Project, measureIndex: number): Project {
+  if (measureIndex < 0 || measureIndex >= project.track.measures.length) return project;
+  const next = cloneProject(project);
+  const measure = next.track.measures[measureIndex];
+  measure.repeatEnd = measure.repeatEnd ? undefined : 2;
+  return next;
+}
+
+export function setRepeatCount(project: Project, measureIndex: number, count: number): Project {
+  if (measureIndex < 0 || measureIndex >= project.track.measures.length) return project;
+  const next = cloneProject(project);
+  next.track.measures[measureIndex].repeatEnd = Math.max(2, Math.min(99, Math.round(count)));
+  return next;
+}
+
+/** Section marker ("Intro", "Chorus") printed in a box above the measure; empty text removes it. */
+export function setSectionLabel(project: Project, measureIndex: number, label: string): Project {
+  if (measureIndex < 0 || measureIndex >= project.track.measures.length) return project;
+  const next = cloneProject(project);
+  const trimmed = label.trim();
+  next.track.measures[measureIndex].sectionLabel = trimmed.length > 0 ? trimmed : undefined;
+  return next;
+}
+
+/** T (Guitar Pro "text"): free text above a beat; empty text removes it. */
+export function setBeatText(project: Project, position: BeatPosition, text: string): Project {
+  const next = cloneProject(project);
+  const trimmed = text.trim();
+  beatAt(next, position).text = trimmed.length > 0 ? trimmed : undefined;
+  return next;
+}
+
+/** L: ties the note to the previous note on its string. */
+export function toggleTie(project: Project, position: BeatPosition, string: Note["string"]): Project {
+  const next = cloneProject(project);
+  const note = noteAt(beatAt(next, position), string);
+  if (!note) return project;
+  note.tie = note.tie ? undefined : true;
+  return next;
+}
+
+/** Y: natural harmonic, drawn as <fret>. */
+export function toggleHarmonic(project: Project, position: BeatPosition, string: Note["string"]): Project {
+  const next = cloneProject(project);
+  const note = noteAt(beatAt(next, position), string);
+  if (!note) return project;
+  note.harmonic = note.harmonic ? undefined : true;
+  return next;
+}
+
+export type BeatMark = "fermata" | "staccato" | "trill";
+
+/** F (fermata), ! (staccato), N (trill): beat-level on/off marks. */
+export function toggleBeatMark(project: Project, position: BeatPosition, mark: BeatMark): Project {
+  const next = cloneProject(project);
+  const beat = beatAt(next, position);
+  beat[mark] = beat[mark] ? undefined : true;
+  return next;
+}
+
+/** ; (accent) and Shift+; (heavy accent): pressing the same level again clears it. */
+export function toggleAccent(project: Project, position: BeatPosition, level: "normal" | "heavy"): Project {
+  const next = cloneProject(project);
+  const beat = beatAt(next, position);
+  beat.accent = beat.accent === level ? undefined : level;
+  return next;
+}
+
+/** Shift+D / Shift+U: pick-stroke direction; pressing the same direction again clears it. */
+export function togglePickStroke(project: Project, position: BeatPosition, direction: "down" | "up"): Project {
+  const next = cloneProject(project);
+  const beat = beatAt(next, position);
+  beat.pickStroke = beat.pickStroke === direction ? undefined : direction;
   return next;
 }

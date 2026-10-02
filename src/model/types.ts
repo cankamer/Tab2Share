@@ -25,6 +25,8 @@ export interface Note {
   hammer?: boolean; // direction (hammer-on vs pull-off) is derived automatically
   dead?: boolean; // muted note, notated as "x"
   ghost?: boolean; // notated in parentheses
+  tie?: boolean; // tied to the previous note on the same string; fret drawn in parentheses with an arc
+  harmonic?: boolean; // natural harmonic, notated as <fret>
 }
 
 export interface Beat {
@@ -36,6 +38,12 @@ export interface Beat {
   tuplet?: { count: number; over: number }; // triplets, etc.
   palmMute?: boolean; // beat-level, drawn as a bracketed range
   letRing?: boolean;
+  text?: string; // free text printed above the beat
+  fermata?: boolean;
+  accent?: "normal" | "heavy";
+  staccato?: boolean;
+  trill?: boolean; // drawn as "tr" above the beat
+  pickStroke?: "down" | "up";
 }
 
 export interface Measure {

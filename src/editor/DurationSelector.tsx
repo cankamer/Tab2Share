@@ -50,7 +50,7 @@ export function DurationSelector({
       <SkeuButton title="." onClick={onToggleDotted} active={dotted}>
         {t("durationSelector.dotted")}
       </SkeuButton>
-      <SkeuButton title="T" onClick={onToggleTuplet} active={hasTuplet}>
+      <SkeuButton title="/" onClick={onToggleTuplet} active={hasTuplet}>
         {t("durationSelector.triplet")}
       </SkeuButton>
       <span className="ml-2">
