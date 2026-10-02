@@ -1,0 +1,51 @@
+name: Release
+
+# Pushing a version tag (for example `git tag v0.1.0 && git push origin v0.1.0`) builds the Windows
+# installers on GitHub's servers and attaches them to a draft release for review.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Tab2Share ${{ github.ref_name }}"
+          releaseBody: |
+            Windows installers for Tab2Share.
+
+            **Install:** download `Tab2Share_*_x64-setup.exe` (recommended) or the `.msi`, then run it.
+            The app is not code-signed yet, so Windows SmartScreen may warn on first run:
+            choose **More info → Run anyway**.
+
+            **Kurulum:** `Tab2Share_*_x64-setup.exe` dosyasını (önerilen) ya da `.msi` dosyasını indirip çalıştırın.
+            Uygulama henüz imzalı olmadığı için Windows SmartScreen uyarı verebilir:
+            **Ek bilgi → Yine de çalıştır**.
+
+            Electric guitar samples: Karoryfer Samples via tonejs-instruments, CC BY 3.0 (see THIRD_PARTY_NOTICES.md).
+          releaseDraft: true
+          prerelease: false

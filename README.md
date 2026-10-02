@@ -41,6 +41,16 @@
 
 <br />
 
+## İndir
+
+Windows için hazır kurulum dosyaları [**Releases**](https://github.com/cankamer/Tab2Share/releases) sayfasında: `Tab2Share_x.y.z_x64-setup.exe` (önerilen) veya `.msi`.
+
+> Uygulama henüz imzalı olmadığı için ilk açılışta Windows SmartScreen uyarı gösterebilir: **Ek bilgi → Yine de çalıştır**.
+
+*English: grab the Windows installer (`.exe` or `.msi`) from the [Releases](https://github.com/cankamer/Tab2Share/releases) page. The app is unsigned, so SmartScreen may ask for **More info → Run anyway**.*
+
+---
+
 ## Özellikler
 
 ### 1. Vektörel Tab Tuvali & Gerçek Zamanlı Efektler
