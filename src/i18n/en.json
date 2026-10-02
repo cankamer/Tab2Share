@@ -24,6 +24,7 @@
     "hubLabel": "label",
     "hubEmpty": "—",
     "categories": {
+      "playback": "Playback",
       "major": "Major",
       "minor": "Minor",
       "seventh": "Seventh",
@@ -114,6 +115,7 @@
     "themeDark": "Black",
     "fadeTop": "Fade top edge",
     "fadeBottom": "Fade bottom edge",
+    "notation": "Standard notation",
     "watermark": "Tab2Share watermark",
     "export": "Export PNG...",
     "copy": "Copy to clipboard",
@@ -188,6 +190,13 @@
       "letRing": "Let ring",
       "clearEffects": "Clear effects"
     },
+    "play": {
+      "listen": "Listen and transcribe...",
+      "sound": "Sound",
+      "soundSamples": "Real guitar (recorded samples)",
+      "soundSynth": "Synthesized",
+      "label": "Play"
+    },
     "bar": {
       "label": "Bar",
       "timeSignature": "Time signature",
@@ -206,9 +215,13 @@
       "zoomOut": "Zoom out",
       "resetZoom": "Reset zoom",
       "togglePreview": "Toggle preview",
+      "toggleNotation": "Toggle standard notation",
       "toggleFretboard": "Toggle fretboard",
       "toggleChordPicker": "Toggle chord picker",
       "toggleEffectPalette": "Toggle effect palette",
+      "fretboardStyle": "Fretboard style",
+      "fretboardNeck": "Guitar neck",
+      "fretboardNumbers": "Number grid",
       "measuresPerLine": "Measures per line",
       "theme": "Theme",
       "language": "Language"
@@ -246,6 +259,46 @@
     "gotoTitle": "Go to bar",
     "gotoLabel": "Bar number (1-{{count}})"
   },
+  "transport": {
+    "listen": "Listen to the guitar and write the tab",
+    "play": "Play",
+    "pause": "Pause",
+    "stop": "Stop",
+    "playFromStart": "Play from the beginning"
+  },
+  "listen": {
+    "gain": "Input gain",
+    "autoLevel": "Auto level",
+    "autoLevelHint": "Play loudly for a few seconds and the gain is set for you",
+    "autoLevelPlaying": "Play loudly for a few seconds...",
+    "tooQuiet": "Input is very quiet - raise the gain or try Auto level",
+    "title": "Listen & transcribe",
+    "start": "Start listening",
+    "opening": "Opening...",
+    "stop": "Stop listening",
+    "close": "Close",
+    "device": "Input device",
+    "level": "Input level (the line marks the noise gate)",
+    "error": "Couldn't open the input: {{message}}",
+    "calibrate": "Introduce the guitar",
+    "calibNoise": "Stay quiet for a moment - measuring the noise floor...",
+    "calibString": "Play open string {{string}} ({{note}})",
+    "skip": "Skip",
+    "calibrationSummary": "Offset {{offset}}¢ · gate {{gate}} dB",
+    "detectedTuning": "Your guitar is tuned: {{tuning}}",
+    "applyTuning": "Use this tuning",
+    "speed": "Speed",
+    "metronome": "Metronome",
+    "countIn": "Count-in bars",
+    "string": "String",
+    "auto": "Auto",
+    "fromMeasure": "Writes from measure {{n}}",
+    "countingIn": "Count-in... {{n}}",
+    "recording": "Recording - play!",
+    "finish": "Finish",
+    "discard": "Discard",
+    "record": "Record"
+  },
   "shortcuts": {
     "title": "Keyboard shortcuts",
     "searchPlaceholder": "Search shortcuts...",
@@ -262,6 +315,7 @@
     },
     "f1Note": "F1 opens duration \"whole note\", not help — help lives on Ctrl+/ (section 8).",
     "items": {
+      "playPause": "Play / pause",
       "durationStep": "Longer / shorter note",
       "tie": "Tie note",
       "harmonic": "Natural harmonic",
@@ -322,10 +376,12 @@
     "title": "Preferences",
     "themeField": "Theme",
     "languageField": "Language",
+    "reverseScroll": "Reverse scroll direction on the tab",
     "autosaveNote": "Autosave writes a recovery copy every 5 seconds once the project has a save location.",
     "close": "Close"
   },
   "about": {
+    "credits": "Electric guitar samples: Karoryfer Samples, via the tonejs-instruments project (CC BY 3.0).",
     "title": "About Tab2Share",
     "version": "Version {{version}}",
     "license": "License: MIT",
@@ -355,7 +411,7 @@
     "subtitle": "Turn a tab into a share-ready image.",
     "openExample": {
       "title": "Open the example",
-      "description": "A short Am-C-G-F riff with a couple of bends, already on screen — see what Tab2Share produces before you write a note."
+      "description": "Midnight Drive — an original 24-bar piece in E minor with a clean intro, a palm-muted verse, a chorus and two solos. See bends, slides, vibrato, repeats and the notation staff at work."
     },
     "newProject": {
       "title": "New project",

@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { TabCanvas } from "./render/TabCanvas";
-import { AM_C_G_F_EXAMPLE } from "./model/examples";
+import { MIDNIGHT_DRIVE } from "./model/examples";
 import { createBlankProject } from "./model/examples/blank";
 import { isStandardTuning } from "./model/tunings";
 import { useEditor } from "./editor/useEditor";
@@ -10,6 +10,7 @@ import { flattenBeats } from "./editor/beats";
 import { resolveEffectiveSettings } from "./editor/effectiveSettings";
 import { DurationSelector } from "./editor/DurationSelector";
 import { GuitarFretboard } from "./editor/GuitarFretboard";
+import { GuitarNeck } from "./editor/GuitarNeck";
 import { MeasureControls } from "./editor/MeasureControls";
 import { ChordPicker } from "./editor/ChordPicker";
 import { EffectPalette } from "./editor/EffectPalette";
@@ -31,8 +32,53 @@ import { AboutModal } from "./menu/AboutModal";
 import { InfoModal } from "./menu/InfoModal";
 import { ExportModal } from "./editor/ExportModal";
 import { PromptModal } from "./editor/ui/PromptModal";
+import { ListenPanel, type RecordingDraft } from "./editor/ListenPanel";
+import { applyRecording } from "./editor/mutations";
+import { SkeuButton } from "./editor/ui/SkeuButton";
+import { Icon } from "./editor/ui/Icons";
+import { TabPlayer, type SoundMode } from "./audio/player";
 import { NeumorphicScrollbar } from "./editor/ui/NeumorphicScrollbar";
 import type { BendPreset, Duration, SlideType } from "./model/types";
+
+type FretboardStyle = "neck" | "numbers";
+
+const FRETBOARD_STYLE_KEY = "tab2share-fretboard-style";
+const NOTATION_KEY = "tab2share-show-notation";
+const SOUND_KEY = "tab2share-sound";
+const REVERSE_SCROLL_KEY = "tab2share-reverse-scroll";
+
+/** Wheel direction on the tab: reversed by default (wheel down pans the tab back toward the start). */
+function readReverseScroll(): boolean {
+  try {
+    return localStorage.getItem(REVERSE_SCROLL_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+function readSoundMode(): SoundMode {
+  try {
+    return localStorage.getItem(SOUND_KEY) === "synth" ? "synth" : "samples";
+  } catch {
+    return "samples";
+  }
+}
+
+function readShowNotation(): boolean {
+  try {
+    return localStorage.getItem(NOTATION_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+function readFretboardStyle(): FretboardStyle {
+  try {
+    return localStorage.getItem(FRETBOARD_STYLE_KEY) === "numbers" ? "numbers" : "neck";
+  } catch {
+    return "neck";
+  }
+}
 
 type PromptKind = "section" | "text" | "gotoBar";
 
@@ -103,21 +149,71 @@ function App() {
     setDefaultTempo,
     setDefaultTimeSignature,
     loadProject,
-  } = useEditor(AM_C_G_F_EXAMPLE);
+  } = useEditor(MIDNIGHT_DRIVE);
 
   const [hoveredFlatIndex, setHoveredFlatIndex] = useState<number | null>(null);
   const [themeChoice, setThemeChoiceState] = useState<ThemeChoice>(readStoredChoice);
   const [zoom, setZoom] = useState(1);
   const [showPreview, setShowPreview] = useState(true);
   const [showFretboard, setShowFretboard] = useState(true);
+  const [showNotation, setShowNotationState] = useState(readShowNotation);
+  const [fretboardStyle, setFretboardStyleState] = useState<FretboardStyle>(readFretboardStyle);
+
+  const toggleNotation = useCallback(() => {
+    setShowNotationState((value) => {
+      try {
+        localStorage.setItem(NOTATION_KEY, value ? "off" : "on");
+      } catch {
+        // Per-viewer convenience only; fine if it doesn't persist.
+      }
+      return !value;
+    });
+  }, []);
+
+  const setFretboardStyle = useCallback((style: FretboardStyle) => {
+    setFretboardStyleState(style);
+    try {
+      localStorage.setItem(FRETBOARD_STYLE_KEY, style);
+    } catch {
+      // Per-viewer convenience only; fine if it doesn't persist.
+    }
+  }, []);
   const [showChordPicker, setShowChordPicker] = useState(true);
   const [showEffectPalette, setShowEffectPalette] = useState(true);
   const [lineBreakMode, setLineBreakMode] = useState<LineBreakMode>({ kind: "auto" });
   const [modal, setModal] = useState<ModalKind>(null);
   const [prompt, setPrompt] = useState<PromptKind | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [listenOpen, setListenOpen] = useState(false);
+  const [draft, setDraft] = useState<RecordingDraft | null>(null);
+  const [listenRecording, setListenRecording] = useState(false);
+  const listenStopRef = useRef<(() => void) | null>(null);
+  const [soundMode, setSoundModeState] = useState<SoundMode>(readSoundMode);
+  const [reverseScroll, setReverseScrollState] = useState(readReverseScroll);
+  const reverseScrollRef = useRef(reverseScroll);
+  reverseScrollRef.current = reverseScroll;
+
+  const setReverseScroll = useCallback((value: boolean) => {
+    setReverseScrollState(value);
+    try {
+      localStorage.setItem(REVERSE_SCROLL_KEY, value ? "on" : "off");
+    } catch {
+      // Per-viewer convenience only; fine if it doesn't persist.
+    }
+  }, []);
+  const playerRef = useRef<TabPlayer | null>(null);
+  const projectRef = useRef(state.project);
+  const cursorRef = useRef(state.cursor.flatIndex);
+  const playStartRef = useRef(0);
+  /** Playback stops auto-scrolling to the playhead until this time (ms epoch): set while the user scrolls by hand. */
+  const followHoldUntilRef = useRef(0);
+  const holdPlayheadFollow = useCallback(() => {
+    followHoldUntilRef.current = Date.now() + 4000;
+  }, []);
   const [showWelcome, setShowWelcome] = useState(true);
   const [showTour, setShowTour] = useState(false);
   const tabScrollContainerRef = useRef<HTMLDivElement>(null);
+  const [tabViewportHeight, setTabViewportHeight] = useState(0);
   const prevMeasuresCountRef = useRef(state.project.track.measures.length);
 
   useEffect(() => {
@@ -135,6 +231,16 @@ function App() {
       // getCurrentWindow() throws synchronously outside a Tauri context (e.g. `vite dev` in a plain browser).
     }
   }, []);
+
+  useEffect(() => {
+    const container = tabScrollContainerRef.current;
+    if (!container) return;
+    const update = () => setTabViewportHeight(container.clientHeight);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [showWelcome]);
 
   useEffect(() => {
     const currentCount = state.project.track.measures.length;
@@ -159,13 +265,22 @@ function App() {
 
     let targetScrollLeft = container.scrollLeft;
     let animationFrameId: number | null = null;
+    let lastFrameTime = 0;
 
-    const smoothScrollLoop = () => {
+    // Time-based exponential smoothing: the glide takes the same wall-clock time on a 60 Hz and a
+    // 165 Hz display (a fixed per-frame factor made it near-instant on fast screens, so each wheel
+    // notch ended before the next arrived and the pan felt steppy). ~110 ms time constant means
+    // notches that arrive faster than that blend into one continuous motion.
+    const SMOOTHING_TIME_CONSTANT_MS = 110;
+
+    const smoothScrollLoop = (now: number) => {
       if (!container) return;
+      const dt = Math.min(now - lastFrameTime, 50);
+      lastFrameTime = now;
       const current = container.scrollLeft;
       const diff = targetScrollLeft - current;
-      if (Math.abs(diff) > 0.5) {
-        container.scrollLeft = current + diff * 0.3;
+      if (Math.abs(diff) > 0.4) {
+        container.scrollLeft = current + diff * (1 - Math.exp(-dt / SMOOTHING_TIME_CONSTANT_MS));
         animationFrameId = requestAnimationFrame(smoothScrollLoop);
       } else {
         container.scrollLeft = targetScrollLeft;
@@ -177,10 +292,12 @@ function App() {
       // Whichever axis is actually dominant wins — a mouse's smooth-scroll driver (e.g. the MX
       // Master 3S's Logi Options+) can report a tiny nonzero deltaX alongside a real vertical
       // scroll, and picking deltaX just because it's nonzero made panning imperceptibly slow.
-      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      const rawDelta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      const delta = reverseScrollRef.current ? -rawDelta : rawDelta;
 
       if (delta !== 0) {
         e.preventDefault();
+        followHoldUntilRef.current = Date.now() + 4000;
 
         if (animationFrameId === null) {
           targetScrollLeft = container.scrollLeft;
@@ -190,6 +307,7 @@ function App() {
         if (maxScroll > 0) {
           targetScrollLeft = Math.max(0, Math.min(maxScroll, targetScrollLeft + delta));
           if (animationFrameId === null) {
+            lastFrameTime = performance.now();
             animationFrameId = requestAnimationFrame(smoothScrollLoop);
           }
         }
@@ -203,7 +321,8 @@ function App() {
         cancelAnimationFrame(animationFrameId);
       }
     };
-  }, []);
+    // The tab well only exists once the welcome screen is dismissed, so re-attach then.
+  }, [showWelcome]);
 
   const confirmDiscard = useCallback(
     (title: string) => window.confirm(t("app.confirmDiscard", { title: title || t("app.untitled") })),
@@ -236,7 +355,7 @@ function App() {
   }, [enterEditor, projectFile]);
 
   const handleWelcomeExample = useCallback(() => {
-    projectFile.openExample(AM_C_G_F_EXAMPLE);
+    projectFile.openExample(MIDNIGHT_DRIVE);
     enterEditor();
   }, [enterEditor, projectFile]);
 
@@ -245,7 +364,26 @@ function App() {
     setShowTour(false);
   }, []);
 
-  const tabLayout = computeLayout(state.project);
+  // While a take is being recorded, the live transcription is previewed on top of the project (not yet an edit).
+  const displayProject = useMemo(
+    () => (draft ? applyRecording(state.project, draft.startMeasure, draft.measures) : state.project),
+    [draft, state.project],
+  );
+  const draftCursorFlat = useMemo(() => {
+    if (!draft || draft.measures.length === 0) return null;
+    const measures = displayProject.track.measures;
+    const last = Math.min(measures.length - 1, draft.startMeasure + draft.measures.length - 1);
+    let flat = 0;
+    for (let i = 0; i < last; i++) flat += measures[i].beats.length;
+    return flat + Math.max(0, (measures[last]?.beats.length ?? 1) - 1);
+  }, [draft, displayProject]);
+
+  const tabLayout = computeLayout(displayProject, showNotation);
+  // With the staff on, the canvas is taller than the editor's tab well on a typical window: shrink
+  // it to fit the height instead of clipping the header rows (the user's own zoom stays on top).
+  const fitScale =
+    tabViewportHeight > 0 ? Math.max(0.5, Math.min(1, (tabViewportHeight - 8) / tabLayout.height)) : 1;
+  const effectiveZoom = zoom * fitScale;
   const flat = flattenBeats(state.project);
   const cursorBeat = flat[state.cursor.flatIndex]?.beat;
   const measureIndex = flat[state.cursor.flatIndex]?.measureIndex ?? 0;
@@ -292,6 +430,50 @@ function App() {
     }
   }, [confirmDiscard, projectFile.dirty, state.project.title]);
 
+  projectRef.current = state.project;
+  cursorRef.current = state.cursor.flatIndex;
+
+  const stopPlayback = useCallback((returnToStart: boolean) => {
+    playerRef.current?.stop();
+    setPlaying(false);
+    if (returnToStart) dispatch({ type: "SET_PLAYHEAD", flatIndex: playStartRef.current });
+  }, [dispatch]);
+
+  const setSoundMode = useCallback((mode: SoundMode) => {
+    setSoundModeState(mode);
+    playerRef.current?.setSound(mode);
+    try {
+      localStorage.setItem(SOUND_KEY, mode);
+    } catch {
+      // Per-viewer convenience only; fine if it doesn't persist.
+    }
+  }, []);
+
+  const startPlayback = useCallback(
+    (fromStart: boolean) => {
+      if (!playerRef.current) playerRef.current = new TabPlayer();
+      playerRef.current.setSound(soundMode);
+      const from = fromStart ? 0 : cursorRef.current;
+      playStartRef.current = from;
+      if (fromStart) dispatch({ type: "SET_PLAYHEAD", flatIndex: 0 });
+      setPlaying(true);
+      void playerRef.current
+        .play(projectRef.current, from, {
+          onBeat: (flatIndex) => dispatch({ type: "SET_PLAYHEAD", flatIndex }),
+          onEnd: () => setPlaying(false),
+        })
+        .catch(() => setPlaying(false));
+    },
+    [dispatch, soundMode],
+  );
+
+  const togglePlayback = useCallback(() => {
+    if (playerRef.current?.isPlaying) stopPlayback(false);
+    else startPlayback(false);
+  }, [startPlayback, stopPlayback]);
+
+  useEffect(() => () => playerRef.current?.dispose(), []);
+
   const focusTimeSignature = useCallback(() => {
     const input = document.getElementById("time-signature-num");
     if (input instanceof HTMLInputElement) {
@@ -315,6 +497,18 @@ function App() {
 
       const mod = event.ctrlKey || event.metaKey;
       const key = event.key.toLowerCase();
+
+      // Guitar Pro: Space plays / pauses from the cursor, Ctrl+Space plays from the beginning.
+      if (event.code === "Space" && !event.altKey && !event.shiftKey) {
+        event.preventDefault();
+        if (listenStopRef.current) {
+          listenStopRef.current();
+          return;
+        }
+        if (mod) startPlayback(true);
+        else togglePlayback();
+        return;
+      }
 
       // Guitar Pro's prompt shortcuts: T = text, Shift+Insert = section, Ctrl+G = go to bar, Ctrl+T = time signature.
       if (!mod && !event.altKey && key === "t") {
@@ -340,7 +534,10 @@ function App() {
 
       if (!mod) return;
 
-      if (key === "n") {
+      if (key === "n" && event.shiftKey) {
+        event.preventDefault();
+        toggleNotation();
+      } else if (key === "n") {
         event.preventDefault();
         projectFile.newProject();
       } else if (key === "o") {
@@ -386,7 +583,33 @@ function App() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [focusTimeSignature, projectFile, showWelcome]);
+  }, [focusTimeSignature, projectFile, showWelcome, startPlayback, toggleNotation, togglePlayback]);
+
+  useEffect(() => {
+    function swallowSpaceKeyUp(event: KeyboardEvent) {
+      const target = event.target;
+      const isTextInput =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLElement && target.isContentEditable);
+      if (event.code === "Space" && !isTextInput) event.preventDefault();
+    }
+    window.addEventListener("keyup", swallowSpaceKeyUp);
+    return () => window.removeEventListener("keyup", swallowSpaceKeyUp);
+  }, []);
+
+  // While playing, keep the playhead on screen.
+  useEffect(() => {
+    if (!(playing || draft) || Date.now() < followHoldUntilRef.current) return;
+    const container = tabScrollContainerRef.current;
+    const placement = tabLayout.flatBeats[draftCursorFlat ?? state.cursor.flatIndex];
+    if (!container || !placement) return;
+    const x = placement.x * effectiveZoom + 16;
+    if (x < container.scrollLeft + 90 || x > container.scrollLeft + container.clientWidth - 220) {
+      container.scrollTo({ left: Math.max(0, x - container.clientWidth * 0.2), behavior: "smooth" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, state.cursor.flatIndex, draftCursorFlat]);
 
   if (showWelcome) {
     return (
@@ -736,6 +959,36 @@ function App() {
           />
         </MenuRoot>
 
+        <MenuRoot id="play" label={t("menu.play.label")}>
+          <MenuItem
+            label={playing ? t("transport.pause") : t("transport.play")}
+            shortcut="Space"
+            onClick={togglePlayback}
+          />
+          <MenuItem label={t("transport.playFromStart")} shortcut="Ctrl+Space" onClick={() => startPlayback(true)} />
+          <MenuItem label={t("transport.stop")} onClick={() => stopPlayback(true)} disabled={!playing} />
+          <MenuSeparator />
+          <MenuItem
+            label={t("menu.play.listen")}
+            checked={listenOpen}
+            onClick={() => setListenOpen((value) => !value)}
+            disabled={listenRecording}
+          />
+          <MenuSeparator />
+          <MenuSubmenu label={t("menu.play.sound")}>
+            <MenuItem
+              label={t("menu.play.soundSamples")}
+              checked={soundMode === "samples"}
+              onClick={() => setSoundMode("samples")}
+            />
+            <MenuItem
+              label={t("menu.play.soundSynth")}
+              checked={soundMode === "synth"}
+              onClick={() => setSoundMode("synth")}
+            />
+          </MenuSubmenu>
+        </MenuRoot>
+
         <MenuRoot id="view" label={t("menu.view.label")}>
           <MenuItem
             label={t("menu.view.zoomIn")}
@@ -766,6 +1019,12 @@ function App() {
             onClick={() => setShowFretboard((value) => !value)}
           />
           <MenuItem
+            label={t("menu.view.toggleNotation")}
+            shortcut="Ctrl+Shift+N"
+            checked={showNotation}
+            onClick={toggleNotation}
+          />
+          <MenuItem
             label={t("menu.view.toggleChordPicker")}
             shortcut="Ctrl+K"
             checked={showChordPicker}
@@ -777,6 +1036,18 @@ function App() {
             checked={showEffectPalette}
             onClick={() => setShowEffectPalette((value) => !value)}
           />
+          <MenuSubmenu label={t("menu.view.fretboardStyle")}>
+            <MenuItem
+              label={t("menu.view.fretboardNeck")}
+              checked={fretboardStyle === "neck"}
+              onClick={() => setFretboardStyle("neck")}
+            />
+            <MenuItem
+              label={t("menu.view.fretboardNumbers")}
+              checked={fretboardStyle === "numbers"}
+              onClick={() => setFretboardStyle("numbers")}
+            />
+          </MenuSubmenu>
           <MenuSeparator />
           <MenuSubmenu label={t("menu.view.measuresPerLine")}>
             <MenuItem
@@ -861,6 +1132,7 @@ function App() {
         style={state.readOnly ? { opacity: 0.55, pointerEvents: "none" } : undefined}
         aria-disabled={state.readOnly}
       >
+        <div className="flex flex-wrap items-center justify-between gap-3">
         <DurationSelector
           activeDuration={state.activeDuration}
           dotted={cursorBeat?.dotted ?? false}
@@ -871,6 +1143,44 @@ function App() {
           onToggleTuplet={toggleTuplet}
           onToggleAutoAdvance={toggleAutoAdvance}
         />
+        <div className="flex items-center gap-2 rounded p-2" style={{ background: "var(--body)" }}>
+          <SkeuButton
+            title={`${t("transport.playFromStart")} (Ctrl+Space)`}
+            aria-label={t("transport.playFromStart")}
+            onClick={() => startPlayback(true)}
+            className="flex h-9 w-10 items-center justify-center !px-0 !py-0"
+          >
+            <Icon name="playFromStart" size={20} />
+          </SkeuButton>
+          <SkeuButton
+            title={`${playing ? t("transport.pause") : t("transport.play")} (Space)`}
+            aria-label={playing ? t("transport.pause") : t("transport.play")}
+            onClick={togglePlayback}
+            active={playing}
+            className="flex h-9 w-12 items-center justify-center !px-0 !py-0"
+          >
+            <Icon name={playing ? "pause" : "play"} size={22} />
+          </SkeuButton>
+          <SkeuButton
+            title={t("transport.stop")}
+            aria-label={t("transport.stop")}
+            onClick={() => stopPlayback(true)}
+            className="flex h-9 w-10 items-center justify-center !px-0 !py-0"
+          >
+            <Icon name="stop" size={20} />
+          </SkeuButton>
+          <SkeuButton
+            title={t("transport.listen")}
+            aria-label={t("transport.listen")}
+            onClick={() => setListenOpen((value) => !value)}
+            active={listenOpen}
+            disabled={listenRecording}
+            className="flex h-9 w-10 items-center justify-center !px-0 !py-0"
+          >
+            <Icon name="mic" size={20} />
+          </SkeuButton>
+        </div>
+        </div>
 
         <div className="flex flex-wrap lg:flex-nowrap items-stretch gap-3">
           <div className="flex-1 min-w-0">
@@ -922,18 +1232,26 @@ function App() {
             >
               <div
                 style={{
-                  width: `${(tabLayout.width + 70) * zoom}px`,
-                  transform: `scale(${zoom})`,
+                  width: `${(tabLayout.width + 70) * effectiveZoom}px`,
+                  transform: `scale(${effectiveZoom})`,
                   transformOrigin: "left center",
                 }}
                 className="my-auto relative group flex items-center shrink-0"
               >
                 <TabCanvas
-                  project={state.project}
-                  visual={{ cursor: state.cursor, selectionRange, pendingDigit: state.pendingDigit }}
+                  project={displayProject}
+                  visual={{
+                    cursor:
+                      draftCursorFlat !== null
+                        ? { flatIndex: draftCursorFlat, string: state.cursor.string }
+                        : state.cursor,
+                    selectionRange,
+                    pendingDigit: state.pendingDigit,
+                  }}
                   onCellClick={clickCell}
                   onCellHover={setHoveredFlatIndex}
                   onDeleteMeasure={deleteMeasure}
+                  showNotation={showNotation}
                 />
                 <button
                   type="button"
@@ -949,7 +1267,7 @@ function App() {
             {/* Persistent Inset Shadow Rim - always on top of canvas, never buried */}
             <div className="pointer-events-none absolute inset-0 rounded-xl tab-screen-rim z-20" />
           </div>
-          <NeumorphicScrollbar scrollRef={tabScrollContainerRef} />
+          <NeumorphicScrollbar scrollRef={tabScrollContainerRef} onUserScroll={holdPlayheadFollow} />
         </div>
       </div>
 
@@ -958,6 +1276,21 @@ function App() {
         style={state.readOnly ? { opacity: 0.55, pointerEvents: "none" } : undefined}
         aria-disabled={state.readOnly}
       >
+        {listenOpen ? (
+          <ListenPanel
+            tuning={state.project.track.tuning}
+            capo={state.project.track.capo}
+            tempo={effectiveSettings.tempo}
+            timeSignature={effectiveSettings.timeSignature}
+            startMeasure={measureIndex}
+            onDraft={setDraft}
+            onCommit={(startMeasure, measures) => dispatch({ type: "APPLY_RECORDING", startMeasure, measures })}
+            onApplyTuning={setTuning}
+            onRecordingChange={setListenRecording}
+            stopRef={listenStopRef}
+            onClose={() => setListenOpen(false)}
+          />
+        ) : null}
         {showEffectPalette ? (
           <EffectPalette
             note={cursorNote}
@@ -980,11 +1313,11 @@ function App() {
           />
         ) : null}
         {showFretboard ? (
-          <GuitarFretboard
-            tuning={state.project.track.tuning}
-            activeString={state.cursor.string}
-            onFretClick={clickFret}
-          />
+          fretboardStyle === "neck" ? (
+            <GuitarNeck tuning={state.project.track.tuning} onFretClick={clickFret} />
+          ) : (
+            <GuitarFretboard tuning={state.project.track.tuning} onFretClick={clickFret} />
+          )
         ) : null}
       </div>
 
@@ -994,6 +1327,7 @@ function App() {
           lineBreakMode={lineBreakMode}
           onLineBreakModeChange={setLineBreakMode}
           onClose={() => setModal(null)}
+          showNotation={showNotation}
         />
       ) : null}
       {prompt === "section" ? (
@@ -1050,6 +1384,8 @@ function App() {
           onSetTheme={setThemeChoiceState}
           language={language}
           onSetLanguage={setLanguage}
+          reverseScroll={reverseScroll}
+          onSetReverseScroll={setReverseScroll}
         />
       ) : null}
       {modal === "about" ? <AboutModal onClose={() => setModal(null)} /> : null}

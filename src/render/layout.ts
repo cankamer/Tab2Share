@@ -1,5 +1,6 @@
 import type { Beat, Measure, Project } from "../model/types";
 import { measureLeadWidth, resolveMeasureMarks, type MeasureMarks } from "../editor/effectiveSettings";
+import type { StaffGeometry } from "./drawNotation";
 import {
   BEAT_WIDTH,
   BOTTOM_MARGIN,
@@ -10,7 +11,10 @@ import {
   STEM_LENGTH,
   STRING_COUNT,
   STRING_SPACING,
+  NOTATION_HEADROOM,
+  STAFF_SPACING,
   TAB_TOP_MARGIN,
+  tabTopMargin,
   TUNING_LABEL_WIDTH,
 } from "./constants";
 
@@ -42,6 +46,12 @@ export interface TabLayout {
   stringY: number[];
   tabTopY: number;
   tabBottomY: number;
+  /** Reference line the header rows (section, tempo, text, chord names, measure numbers) hang from: the staff's top line with notation on, else the tab's top string. */
+  headerY: number;
+  /** Top of the cursor/selection column highlight. */
+  columnTopY: number;
+  /** Standard-notation staff above the tab, when shown. */
+  staff?: StaffGeometry;
   stemBaselineY: number;
   /** Row Y-positions for the palm-mute and let-ring bracket annotations, below the stems. */
   palmMuteRowY: number;
@@ -52,10 +62,11 @@ export interface TabLayout {
 }
 
 /** Read-only geometry pass: turns a Project into pixel positions for drawTab to paint. */
-export function computeLayout(project: Project): TabLayout {
+export function computeLayout(project: Project, showNotation = false): TabLayout {
+  const tabTop = tabTopMargin(showNotation);
   const stringY = Array.from(
     { length: STRING_COUNT },
-    (_, row) => TAB_TOP_MARGIN + row * STRING_SPACING,
+    (_, row) => tabTop + row * STRING_SPACING,
   );
   const tabTopY = stringY[0];
   const tabBottomY = stringY[STRING_COUNT - 1];
@@ -94,6 +105,9 @@ export function computeLayout(project: Project): TabLayout {
     stringY,
     tabTopY,
     tabBottomY,
+    headerY: showNotation ? TAB_TOP_MARGIN : tabTopY,
+    columnTopY: showNotation ? TAB_TOP_MARGIN + NOTATION_HEADROOM - 24 : tabTopY - 4,
+    staff: showNotation ? { topY: TAB_TOP_MARGIN + NOTATION_HEADROOM, spacing: STAFF_SPACING } : undefined,
     stemBaselineY,
     palmMuteRowY,
     letRingRowY,

@@ -115,10 +115,37 @@ button,
 }
 
 button:hover:not(:disabled),
-[role="button"]:hover,
+[role="button"]:hover {
+  filter: brightness(1.03);
+}
+
+/* Gitar bar perdeleri: hover'da çip yukarı kalkıp büyür, basınca içeri gömülüp küçülür. */
+.fret-cell,
+.fret-cell-inlay {
+  transition:
+    transform 120ms ease-out,
+    box-shadow 120ms ease-out,
+    filter 120ms ease-out;
+}
+
 .fret-cell:hover,
 .fret-cell-inlay:hover {
-  filter: brightness(1.03);
+  z-index: 2;
+  transform: translateY(-2px) scale(1.12);
+  filter: brightness(1.12);
+  box-shadow:
+    9px 9px 20px var(--shadow-dark),
+    -7px -7px 18px var(--shadow-light);
+}
+
+.fret-cell:active,
+.fret-cell-inlay:active {
+  transform: translateY(1px) scale(0.9);
+  filter: brightness(0.94);
+  transition-duration: 50ms;
+  box-shadow:
+    inset 5px 5px 12px var(--shadow-dark),
+    inset -5px -5px 12px var(--shadow-light);
 }
 
 /*
@@ -188,4 +215,19 @@ input[type="number"] {
   display: none;
   width: 0;
   height: 0;
+}
+/* Gitar sapı (GuitarNeck) hücreleri: görünmez tıklama alanı, hover/basışta kırmızı ton. */
+.neck-cell {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  transition: background-color 90ms ease-out;
+}
+
+.neck-cell:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.neck-cell:active {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
 }

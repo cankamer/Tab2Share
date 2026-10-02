@@ -23,6 +23,8 @@ interface ExportPanelProps {
   /** Reports the live export settings up so the modal's preview can render exactly what
    * export would produce (section 14 revision — the preview used to be disconnected). */
   onOptionsChange?: (options: ExportOptions) => void;
+  /** Starts the "Standard notation" switch in the same state as the editor view. */
+  initialShowNotation?: boolean;
 }
 
 /**
@@ -35,7 +37,7 @@ interface ExportPanelProps {
  * copy are also exposed via ref so the File menu (step 12) can trigger the same actions.
  */
 export const ExportPanel = forwardRef<ExportPanelHandle, ExportPanelProps>(function ExportPanel(
-  { project, lineBreakMode, onLineBreakModeChange, onOptionsChange },
+  { project, lineBreakMode, onLineBreakModeChange, onOptionsChange, initialShowNotation = true },
   ref,
 ) {
   const { t } = useTranslation();
@@ -45,6 +47,7 @@ export const ExportPanel = forwardRef<ExportPanelHandle, ExportPanelProps>(funct
   const [fadeBottom, setFadeBottom] = useState(false);
   const [outputTheme, setOutputTheme] = useState<OutputTheme>("light");
   const [watermark, setWatermark] = useState(true);
+  const [showNotation, setShowNotation] = useState(initialShowNotation);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
   const measuresPerLine = lineBreakMode.kind === "fixed" ? lineBreakMode.measuresPerLine : 4;
@@ -57,13 +60,14 @@ export const ExportPanel = forwardRef<ExportPanelHandle, ExportPanelProps>(funct
           : { kind: "reel", lineBreakMode, titleBlockEnabled },
       watermark,
       outputTheme,
+      showNotation,
     };
   }
 
   useEffect(() => {
     onOptionsChange?.(currentOptions());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sizeKind, titleBlockEnabled, fadeTop, fadeBottom, lineBreakMode, outputTheme, watermark]);
+  }, [sizeKind, titleBlockEnabled, fadeTop, fadeBottom, lineBreakMode, outputTheme, watermark, showNotation]);
 
   async function handleExport() {
     try {
@@ -113,7 +117,7 @@ export const ExportPanel = forwardRef<ExportPanelHandle, ExportPanelProps>(funct
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project, sizeKind, lineBreakMode, titleBlockEnabled, fadeTop, fadeBottom, outputTheme, watermark]);
+  }, [project, sizeKind, lineBreakMode, titleBlockEnabled, fadeTop, fadeBottom, outputTheme, watermark, showNotation]);
 
   return (
     <div className="raised flex flex-col gap-3 rounded-2xl p-4 text-xs">
@@ -180,6 +184,7 @@ export const ExportPanel = forwardRef<ExportPanelHandle, ExportPanelProps>(funct
 
       <div className="flex flex-wrap items-center gap-2">
         <Toggle checked={watermark} onChange={setWatermark} label={t("exportPanel.watermark")} />
+        <Toggle checked={showNotation} onChange={setShowNotation} label={t("exportPanel.notation")} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

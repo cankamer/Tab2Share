@@ -8,6 +8,7 @@ import {
 } from "./beats";
 import {
   applyBend,
+  applyRecording,
   applySlide,
   applyVibrato,
   clearNoteEffects,
@@ -147,6 +148,8 @@ export type EditorAction =
   | { type: "STEP_DURATION"; direction: "longer" | "shorter" }
   | { type: "GOTO_MEASURE"; measureIndex: number }
   | { type: "GOTO_SECTION"; direction: "previous" | "next" }
+  | { type: "SET_PLAYHEAD"; flatIndex: number }
+  | { type: "APPLY_RECORDING"; startMeasure: number; measures: Beat[][] }
   | { type: "SET_TITLE"; title: string }
   | { type: "SET_ARTIST"; artist: string }
   | { type: "SET_DEFAULT_TEMPO"; tempo: number }
@@ -490,6 +493,19 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       const project = setBeatDuration(state.project, currentPosition(state), next);
       return { ...withEdit(state, project), activeDuration: next };
     }
+
+    case "SET_PLAYHEAD": {
+      // Playback moves the cursor without it being an edit: no history entry, no read-only check.
+      const flatLength = flattenBeats(state.project).length;
+      return {
+        ...state,
+        cursor: { ...state.cursor, flatIndex: clampFlatIndex(action.flatIndex, flatLength) },
+        selectionAnchor: null,
+      };
+    }
+
+    case "APPLY_RECORDING":
+      return withEdit(state, applyRecording(state.project, action.startMeasure, action.measures));
 
     case "GOTO_MEASURE":
       return gotoMeasure(state, action.measureIndex);

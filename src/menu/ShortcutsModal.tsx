@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Modal } from "../editor/ui/Modal";
 import { SkeuInput } from "../editor/ui/SkeuInput";
 
-type Category = "navigation" | "noteEntry" | "bar" | "effects" | "editing" | "file" | "view";
+type Category = "navigation" | "noteEntry" | "bar" | "effects" | "playback" | "editing" | "file" | "view";
 
 interface ShortcutEntry {
   category: Category;
@@ -64,6 +64,9 @@ const ENTRIES: ShortcutEntry[] = [
   { category: "effects", labelKey: "shortcuts.items.letRing", shortcut: "I" },
   { category: "effects", labelKey: "shortcuts.items.clearEffects", shortcut: "Ctrl + Shift + X" },
 
+  { category: "playback", labelKey: "shortcuts.items.playPause", shortcut: "Space" },
+  { category: "playback", labelKey: "transport.playFromStart", shortcut: "Ctrl + Space" },
+
   { category: "editing", labelKey: "menu.edit.undo", shortcut: "Ctrl + Z" },
   { category: "editing", labelKey: "menu.edit.redo", shortcut: "Ctrl + Y" },
   { category: "editing", labelKey: "menu.edit.cut", shortcut: "Ctrl + X" },
@@ -86,12 +89,13 @@ const ENTRIES: ShortcutEntry[] = [
   { category: "view", labelKey: "menu.view.resetZoom", shortcut: "Ctrl + 0" },
   { category: "view", labelKey: "menu.view.togglePreview", shortcut: "Ctrl + P" },
   { category: "view", labelKey: "menu.view.toggleFretboard", shortcut: "Ctrl + B" },
+  { category: "view", labelKey: "menu.view.toggleNotation", shortcut: "Ctrl + Shift + N" },
   { category: "view", labelKey: "menu.view.toggleChordPicker", shortcut: "Ctrl + K" },
   { category: "view", labelKey: "menu.view.toggleEffectPalette", shortcut: "Ctrl + J" },
   { category: "view", labelKey: "menu.help.keyboardShortcuts", shortcut: "Ctrl + /" },
 ];
 
-const CATEGORY_ORDER: Category[] = ["navigation", "noteEntry", "bar", "effects", "editing", "file", "view"];
+const CATEGORY_ORDER: Category[] = ["navigation", "noteEntry", "bar", "effects", "playback", "editing", "file", "view"];
 
 /**
  * Help > Keyboard shortcuts (section 8): a searchable, categorized modal. Keys are drawn as

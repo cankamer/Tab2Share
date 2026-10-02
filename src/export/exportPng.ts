@@ -20,6 +20,8 @@ export interface ExportOptions {
   sizeMode: ExportSizeMode;
   watermark: boolean;
   outputTheme: OutputTheme;
+  /** Standard-notation staff above the tab (Guitar Pro's score + tab view). */
+  showNotation: boolean;
 }
 
 export function paletteForTheme(theme: OutputTheme): TabPalette {
@@ -36,15 +38,15 @@ const SHEET_MARGIN_BOTTOM = 56;
 /** No title-block content UI exists yet (that's later) — this is just the space it will
  * reserve, matching the "one fewer line fits when it's on" rule so the two stay consistent
  * once it's built. */
-function titleBlockReservedHeight(): number {
-  return singleLineHeight() + LINE_GAP;
+function titleBlockReservedHeight(showNotation: boolean): number {
+  return singleLineHeight(showNotation) + LINE_GAP;
 }
 
 /** How many tab lines fit on one A4 sheet page, given the real (not guessed) line height. */
-function sheetLinesPerPage(titleBlockEnabled: boolean): number {
-  const reserved = titleBlockEnabled ? titleBlockReservedHeight() : 0;
+function sheetLinesPerPage(titleBlockEnabled: boolean, showNotation: boolean): number {
+  const reserved = titleBlockEnabled ? titleBlockReservedHeight(showNotation) : 0;
   const contentHeight = SHEET_HEIGHT - SHEET_MARGIN_TOP - SHEET_MARGIN_BOTTOM - reserved;
-  const perLine = singleLineHeight() + LINE_GAP;
+  const perLine = singleLineHeight(showNotation) + LINE_GAP;
   return Math.max(1, Math.floor((contentHeight + LINE_GAP) / perLine));
 }
 
@@ -52,13 +54,13 @@ export function computeExportPages(project: Project, options: ExportOptions): Li
   if (options.sizeMode.kind === "strip") {
     return computeLineBreaks(project, { kind: "natural" }, Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
   }
-  const availableLines = sheetLinesPerPage(options.sizeMode.titleBlockEnabled);
+  const availableLines = sheetLinesPerPage(options.sizeMode.titleBlockEnabled, options.showNotation);
   return computeLineBreaks(project, options.sizeMode.lineBreakMode, SHEET_WIDTH - SHEET_MARGIN_X * 2, availableLines);
 }
 
 function topOffsetFor(options: ExportOptions): number {
   if (options.sizeMode.kind !== "reel") return 0;
-  const titleBlock = options.sizeMode.titleBlockEnabled ? titleBlockReservedHeight() : 0;
+  const titleBlock = options.sizeMode.titleBlockEnabled ? titleBlockReservedHeight(options.showNotation) : 0;
   return SHEET_MARGIN_TOP + titleBlock;
 }
 
@@ -71,7 +73,7 @@ export function renderExportPage(
 ): HTMLCanvasElement {
   const topOffset = topOffsetFor(options);
   const leftOffset = options.sizeMode.kind === "reel" ? SHEET_MARGIN_X : 0;
-  const natural = computePreviewSize(page.lines, topOffset);
+  const natural = computePreviewSize(page.lines, topOffset, options.showNotation);
   const width = options.sizeMode.kind === "reel" ? SHEET_WIDTH : natural.width + leftOffset;
   const height = options.sizeMode.kind === "reel" ? SHEET_HEIGHT : natural.height;
 
@@ -94,6 +96,7 @@ export function renderExportPage(
     pageHeight: height,
     fadeTop,
     fadeBottom,
+    showNotation: options.showNotation,
   });
   if (options.watermark) drawWatermark(ctx, width, height, palette);
 

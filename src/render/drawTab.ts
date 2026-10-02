@@ -8,14 +8,14 @@ import {
   CHORD_LABEL_FONT,
   CHORD_LABEL_OFFSET,
   EFFECT_LABEL_FONT,
-  FLAG_GAP,
-  FLAG_WIDTH,
   FRET_NUMBER_FONT,
-  STEM_LENGTH,
   TUNING_LABEL_FONT,
   TUNING_LABEL_WIDTH,
   type TabPalette,
 } from "./constants";
+import { beamGroupLength, drawMeasureRhythm } from "./drawRhythm";
+import { buildNotationContext, drawMeasureNotation, drawStaffLines, drawTrebleClef, staffBottomY } from "./drawNotation";
+import { resolveEffectiveSettings } from "../editor/effectiveSettings";
 import { drawBeatMarks, drawBeatText, drawMeasureHeader, drawTies } from "./drawMeasureMarks";
 
 export interface EditorVisual {
@@ -63,44 +63,25 @@ function drawBarlines(ctx: CanvasRenderingContext2D, layout: TabLayout, palette:
   layout.measures.forEach((measure) => drawBarline(measure.startX));
   const lastMeasure = layout.measures[layout.measures.length - 1];
   if (lastMeasure) drawBarline(lastMeasure.endX);
-}
 
-export function drawRhythmStem(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  baselineY: number,
-  beat: Beat,
-  palette: TabPalette,
-) {
-  if (beat.duration === 1) return; // whole note: no stem
-
-  const stemBottomY = baselineY + STEM_LENGTH;
-  ctx.strokeStyle = palette.rhythmStem;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(x, baselineY);
-  ctx.lineTo(x, stemBottomY);
-  ctx.stroke();
-
-  const flagCount = beat.duration === 8 ? 1 : beat.duration === 16 ? 2 : beat.duration === 32 ? 3 : 0;
-  for (let i = 0; i < flagCount; i++) {
-    const flagY = stemBottomY - i * FLAG_GAP;
-    ctx.beginPath();
-    ctx.moveTo(x, flagY);
-    ctx.quadraticCurveTo(
-      x + FLAG_WIDTH,
-      flagY + FLAG_GAP / 2,
-      x + FLAG_WIDTH * 0.6,
-      flagY + FLAG_GAP,
-    );
-    ctx.stroke();
-  }
-
-  if (beat.dotted) {
-    ctx.fillStyle = palette.rhythmStem;
-    ctx.beginPath();
-    ctx.arc(x + 5, stemBottomY - 4, 1.5, 0, Math.PI * 2);
-    ctx.fill();
+  if (layout.staff) {
+    const staff = layout.staff;
+    const drawStaffBarline = (x: number) => {
+      ctx.beginPath();
+      ctx.moveTo(x, staff.topY);
+      ctx.lineTo(x, staffBottomY(staff));
+      ctx.stroke();
+    };
+    layout.measures.forEach((measure) => drawStaffBarline(measure.startX));
+    if (lastMeasure) drawStaffBarline(lastMeasure.endX);
+    // Joins the staff to the tab at the start of the system, like Guitar Pro.
+    const first = layout.measures[0];
+    if (first) {
+      ctx.beginPath();
+      ctx.moveTo(first.startX, staffBottomY(staff));
+      ctx.lineTo(first.startX, layout.tabTopY);
+      ctx.stroke();
+    }
   }
 }
 
@@ -446,7 +427,7 @@ export function drawCapoLabel(ctx: CanvasRenderingContext2D, capo: number, palet
 }
 
 function columnBounds(layout: TabLayout, x: number) {
-  return { left: x - BEAT_WIDTH / 2, top: layout.tabTopY - 4, width: BEAT_WIDTH, height: layout.tabBottomY - layout.tabTopY + 8 };
+  return { left: x - BEAT_WIDTH / 2, top: layout.columnTopY, width: BEAT_WIDTH, height: layout.tabBottomY + 4 - layout.columnTopY };
 }
 
 function drawSelection(
@@ -505,6 +486,8 @@ export function drawTab(
   layout: TabLayout,
   palette: TabPalette,
   visual?: EditorVisual,
+  /** Horizontal window (layout px) to paint: measures wholly outside it are skipped. Used by the tiled editor canvas. */
+  view?: { xMin: number; xMax: number },
 ): void {
   ctx.fillStyle = palette.background;
   ctx.fillRect(0, 0, layout.width, layout.height);
@@ -520,17 +503,35 @@ export function drawTab(
   }
 
   drawStringLines(ctx, project, layout, palette);
+  if (layout.staff) {
+    const lastMeasureForStaff = layout.measures[layout.measures.length - 1];
+    drawStaffLines(ctx, layout.staff, 0, lastMeasureForStaff ? lastMeasureForStaff.endX : TUNING_LABEL_WIDTH, palette);
+    drawTrebleClef(ctx, layout.staff, 3, palette);
+  }
   drawBarlines(ctx, layout, palette);
-  drawCapoLabel(ctx, project.track.capo, palette, layout.tabTopY - CAPO_LABEL_OFFSET);
+  drawCapoLabel(ctx, project.track.capo, palette, layout.headerY - CAPO_LABEL_OFFSET);
   const nonStandardTuning = !isStandardTuning(project.track.tuning);
 
-  const geometry = { stringY: layout.stringY, tabTopY: layout.tabTopY, tabBottomY: layout.tabBottomY };
+  const geometry = { stringY: layout.stringY, tabTopY: layout.tabTopY, tabBottomY: layout.tabBottomY, headerY: layout.headerY, staff: layout.staff };
+  const notationContext = layout.staff ? buildNotationContext(project.track.tuning, project.track.capo) : null;
   for (const measure of layout.measures) {
+    if (view && (measure.closeX < view.xMin || measure.startX > view.xMax)) continue;
     drawMeasureHeader(ctx, measure, geometry, palette);
+    const groupLength = beamGroupLength(resolveEffectiveSettings(project, measure.measureIndex).timeSignature);
+    drawMeasureRhythm(ctx, measure.beats, layout.stemBaselineY, groupLength, palette);
+    if (layout.staff && notationContext) {
+      drawMeasureNotation(
+        ctx,
+        measure.beats,
+        layout.staff,
+        notationContext,
+        resolveEffectiveSettings(project, measure.measureIndex).timeSignature,
+        palette,
+      );
+    }
     for (const { beat, x, flatIndex } of measure.beats) {
-      drawRhythmStem(ctx, x, layout.stemBaselineY, beat, palette);
-      if (beat.chordRef) drawChordLabel(ctx, x, layout.tabTopY, beat.chordRef, nonStandardTuning, palette);
-      if (beat.text) drawBeatText(ctx, x, layout.tabTopY, beat.text, palette);
+      if (beat.chordRef) drawChordLabel(ctx, x, layout.headerY, beat.chordRef, nonStandardTuning, palette);
+      if (beat.text) drawBeatText(ctx, x, layout.headerY, beat.text, palette);
       drawBeatMarks(ctx, beat, x, layout.tabTopY, palette);
 
       if (beat.isRest) continue;

@@ -24,6 +24,7 @@
     "hubLabel": "etiket",
     "hubEmpty": "—",
     "categories": {
+      "playback": "Çalma",
       "major": "Majör",
       "minor": "Minör",
       "seventh": "Yedili",
@@ -114,6 +115,7 @@
     "themeDark": "Siyah",
     "fadeTop": "Üst kenarı soldur",
     "fadeBottom": "Alt kenarı soldur",
+    "notation": "Nota (porte) satırı",
     "watermark": "Tab2Share etiketi",
     "export": "PNG dışa aktar...",
     "copy": "Panoya kopyala",
@@ -188,6 +190,13 @@
       "letRing": "Let ring",
       "clearEffects": "Efektleri temizle"
     },
+    "play": {
+      "listen": "Dinle ve tab'a çevir...",
+      "sound": "Ses",
+      "soundSamples": "Gerçek gitar (kayıtlı örnekler)",
+      "soundSynth": "Sentez",
+      "label": "Çal"
+    },
     "bar": {
       "label": "Ölçü",
       "timeSignature": "Zaman işareti",
@@ -206,9 +215,13 @@
       "zoomOut": "Uzaklaştır",
       "resetZoom": "Yakınlaştırmayı sıfırla",
       "togglePreview": "Önizlemeyi göster/gizle",
+      "toggleNotation": "Nota (porte) satırını aç/kapat",
       "toggleFretboard": "Klavyeyi göster/gizle",
       "toggleChordPicker": "Akor çarkını göster/gizle",
       "toggleEffectPalette": "Efekt paletini göster/gizle",
+      "fretboardStyle": "Fretboard stili",
+      "fretboardNeck": "Gitar sapı",
+      "fretboardNumbers": "Sayı ızgarası",
       "measuresPerLine": "Satır başına ölçü",
       "theme": "Tema",
       "language": "Dil"
@@ -246,6 +259,46 @@
     "gotoTitle": "Ölçüye git",
     "gotoLabel": "Ölçü numarası (1-{{count}})"
   },
+  "transport": {
+    "listen": "Gitarı dinle ve tab'ı yaz",
+    "play": "Çal",
+    "pause": "Duraklat",
+    "stop": "Durdur",
+    "playFromStart": "Baştan çal"
+  },
+  "listen": {
+    "gain": "Giriş kazancı",
+    "autoLevel": "Otomatik seviye",
+    "autoLevelHint": "Birkaç saniye güçlü çal, kazanç senin için ayarlanır",
+    "autoLevelPlaying": "Birkaç saniye güçlü çal...",
+    "tooQuiet": "Giriş çok kısık - kazancı artır veya Otomatik seviye'yi dene",
+    "title": "Dinle ve tab'a çevir",
+    "start": "Dinlemeyi başlat",
+    "opening": "Açılıyor...",
+    "stop": "Dinlemeyi durdur",
+    "close": "Kapat",
+    "device": "Giriş aygıtı",
+    "level": "Giriş seviyesi (çizgi gürültü eşiğini gösterir)",
+    "error": "Giriş açılamadı: {{message}}",
+    "calibrate": "Gitarı tanıt",
+    "calibNoise": "Bir an sessiz kal - gürültü seviyesi ölçülüyor...",
+    "calibString": "{{string}}. teli boş çal ({{note}})",
+    "skip": "Atla",
+    "calibrationSummary": "Sapma {{offset}}¢ · eşik {{gate}} dB",
+    "detectedTuning": "Gitarının akordu: {{tuning}}",
+    "applyTuning": "Bu akordu kullan",
+    "speed": "Hız",
+    "metronome": "Metronom",
+    "countIn": "Sayım ölçüsü",
+    "string": "Tel",
+    "auto": "Otomatik",
+    "fromMeasure": "{{n}}. ölçüden itibaren yazar",
+    "countingIn": "Sayım... {{n}}",
+    "recording": "Kayıtta - çal!",
+    "finish": "Bitir",
+    "discard": "Vazgeç",
+    "record": "Kaydet"
+  },
   "shortcuts": {
     "title": "Klavye kısayolları",
     "searchPlaceholder": "Kısayol ara...",
@@ -262,6 +315,7 @@
     },
     "f1Note": "F1, yardımı değil \"tam nota\" süresini açar — yardım Ctrl+/ üzerindedir (bölüm 8).",
     "items": {
+      "playPause": "Çal / duraklat",
       "durationStep": "Daha uzun / kısa nota",
       "tie": "Bağ (tie)",
       "harmonic": "Doğal harmonik",
@@ -322,10 +376,12 @@
     "title": "Tercihler",
     "themeField": "Tema",
     "languageField": "Dil",
+    "reverseScroll": "Tab'daki kaydırma yönünü tersine çevir",
     "autosaveNote": "Proje bir kayıt konumuna sahip olduğunda otomatik kayıt her 5 saniyede bir kurtarma kopyası yazar.",
     "close": "Kapat"
   },
   "about": {
+    "credits": "Elektro gitar örnekleri: Karoryfer Samples, tonejs-instruments projesi aracılığıyla (CC BY 3.0).",
     "title": "Tab2Share hakkında",
     "version": "Sürüm {{version}}",
     "license": "Lisans: MIT",
@@ -355,7 +411,7 @@
     "subtitle": "Bir tab'ı paylaşıma hazır bir görsele dönüştür.",
     "openExample": {
       "title": "Örnek projeyi aç",
-      "description": "Birkaç bend içeren kısa bir Am-C-G-F yürüyüşü, doğrudan ekranda — sen bir şey yazmadan Tab2Share'in ne ürettiğini gör."
+      "description": "Midnight Drive — Em tonunda özgün, 24 ölçülük bir parça: temiz giriş, palm mute'lu verse, nakarat ve iki solo. Bend, slide, vibrato, tekrar ve nota satırını iş başında gör."
     },
     "newProject": {
       "title": "Yeni proje",

@@ -1,20 +1,26 @@
 import type { Beat, Project } from "../model/types";
 import { isStandardTuning } from "../model/tunings";
 import type { LineLayoutLine } from "./lineLayout";
+import { beamGroupLength, drawMeasureRhythm } from "./drawRhythm";
+import { buildNotationContext, drawMeasureNotation, drawStaffLines, drawTrebleClef, staffBottomY } from "./drawNotation";
+import { resolveEffectiveSettings } from "../editor/effectiveSettings";
 import { drawBeatMarks, drawBeatText, drawMeasureHeader, drawTies } from "./drawMeasureMarks";
-import { drawCapoLabel, drawChordLabel, drawFlagRuns, drawNote, drawRhythmStem, resolveHammerDirection } from "./drawTab";
+import { drawCapoLabel, drawChordLabel, drawFlagRuns, drawNote, resolveHammerDirection } from "./drawTab";
 import {
   BOTTOM_MARGIN,
   CAPO_LABEL_OFFSET,
   EFFECT_ROW_GAP,
+  NOTATION_HEADROOM,
   EFFECT_ROW_HEIGHT,
   LIGHT_PALETTE,
   LINE_GAP,
   STEM_GAP_BELOW_TAB,
   STEM_LENGTH,
+  STAFF_SPACING,
   STRING_COUNT,
   STRING_SPACING,
   TAB_TOP_MARGIN,
+  tabTopMargin,
   TUNING_LABEL_FONT,
   WATERMARK_FONT,
   WATERMARK_MARGIN,
@@ -23,17 +29,21 @@ import {
   type TabPalette,
 } from "./constants";
 
-export function singleLineHeight(): number {
-  const tabBottomY = TAB_TOP_MARGIN + (STRING_COUNT - 1) * STRING_SPACING;
+export function singleLineHeight(showNotation = false): number {
+  const tabBottomY = tabTopMargin(showNotation) + (STRING_COUNT - 1) * STRING_SPACING;
   const stemBaselineY = tabBottomY + STEM_GAP_BELOW_TAB;
   const palmMuteRowY = stemBaselineY + STEM_LENGTH + EFFECT_ROW_GAP;
   const letRingRowY = palmMuteRowY + EFFECT_ROW_HEIGHT;
   return letRingRowY + EFFECT_ROW_HEIGHT + BOTTOM_MARGIN;
 }
 
-export function computePreviewSize(lines: LineLayoutLine[], topOffset = 0): { width: number; height: number } {
+export function computePreviewSize(
+  lines: LineLayoutLine[],
+  topOffset = 0,
+  showNotation = false,
+): { width: number; height: number } {
   const width = lines.reduce((max, line) => Math.max(max, line.width), 0);
-  const lineHeight = singleLineHeight();
+  const lineHeight = singleLineHeight(showNotation);
   const contentHeight =
     lines.length === 0 ? lineHeight : lines.length * lineHeight + (lines.length - 1) * LINE_GAP;
   return { width, height: topOffset + contentHeight };
@@ -65,6 +75,8 @@ export interface DrawLinePreviewOptions {
   fadeBottom?: boolean;
   /** Height (px) of each fade band. */
   edgeFadeSize?: number;
+  /** Standard-notation staff above each tab line (Guitar Pro's score + tab view). */
+  showNotation?: boolean;
 }
 
 /**
@@ -82,7 +94,8 @@ export function drawLinePreview(
   const topOffset = options.topOffset ?? 0;
   const leftOffset = options.leftOffset ?? 0;
   const palette = options.palette ?? LIGHT_PALETTE;
-  const natural = computePreviewSize(lines, topOffset);
+  const showNotation = options.showNotation ?? false;
+  const natural = computePreviewSize(lines, topOffset, showNotation);
   const width = options.pageWidth ?? natural.width;
   const height = options.pageHeight ?? natural.height;
 
@@ -97,7 +110,7 @@ export function drawLinePreview(
   ctx.translate(leftOffset, 0);
 
   const nonStandardTuning = !isStandardTuning(project.track.tuning);
-  const lineHeight = singleLineHeight();
+  const lineHeight = singleLineHeight(showNotation);
   // Hammer direction must see past a line's own boundary, into the track's true musical order.
   const globalFlatBeats: { beat: Beat }[] = project.track.measures.flatMap((measure) =>
     measure.beats.map((beat) => ({ beat })),
@@ -112,6 +125,7 @@ export function drawLinePreview(
       nonStandardTuning,
       globalFlatBeats,
       palette,
+      showNotation,
     );
   });
 
@@ -169,8 +183,11 @@ function drawSingleLine(
   nonStandardTuning: boolean,
   globalFlatBeats: { beat: Beat }[],
   palette: TabPalette,
+  showNotation: boolean,
 ) {
-  const stringY = Array.from({ length: STRING_COUNT }, (_, row) => offsetY + TAB_TOP_MARGIN + row * STRING_SPACING);
+  const stringY = Array.from({ length: STRING_COUNT }, (_, row) => offsetY + tabTopMargin(showNotation) + row * STRING_SPACING);
+  const headerY = offsetY + TAB_TOP_MARGIN;
+  const staff = showNotation ? { topY: headerY + NOTATION_HEADROOM, spacing: STAFF_SPACING } : undefined;
   const tabTopY = stringY[0];
   const tabBottomY = stringY[STRING_COUNT - 1];
   const stemBaselineY = tabBottomY + STEM_GAP_BELOW_TAB;
@@ -205,15 +222,48 @@ function drawSingleLine(
   line.measures.forEach((measure) => drawBarline(measure.startX));
   if (line.measures.length > 0) drawBarline(lineEndX);
 
+  if (staff) {
+    drawStaffLines(ctx, staff, 0, lineEndX, palette);
+    drawTrebleClef(ctx, staff, 3, palette);
+    ctx.strokeStyle = palette.barline;
+    ctx.lineWidth = 1;
+    const drawStaffBarline = (x: number) => {
+      ctx.beginPath();
+      ctx.moveTo(x, staff.topY);
+      ctx.lineTo(x, staffBottomY(staff));
+      ctx.stroke();
+    };
+    line.measures.forEach((measure) => drawStaffBarline(measure.startX));
+    if (line.measures.length > 0) {
+      drawStaffBarline(lineEndX);
+      ctx.beginPath();
+      ctx.moveTo(line.measures[0].startX, staffBottomY(staff));
+      ctx.lineTo(line.measures[0].startX, tabTopY);
+      ctx.stroke();
+    }
+  }
+
   const flatBeats = line.measures.flatMap((measure) => measure.beats);
 
-  const geometry = { stringY, tabTopY, tabBottomY };
+  const geometry = { stringY, tabTopY, tabBottomY, headerY: showNotation ? headerY : tabTopY, staff };
+  const notationContext = staff ? buildNotationContext(project.track.tuning, project.track.capo) : null;
   for (const measure of line.measures) {
     drawMeasureHeader(ctx, measure, geometry, palette);
+    const groupLength = beamGroupLength(resolveEffectiveSettings(project, measure.measureIndex).timeSignature);
+    drawMeasureRhythm(ctx, measure.beats, stemBaselineY, groupLength, palette);
+    if (staff && notationContext) {
+      drawMeasureNotation(
+        ctx,
+        measure.beats,
+        staff,
+        notationContext,
+        resolveEffectiveSettings(project, measure.measureIndex).timeSignature,
+        palette,
+      );
+    }
     for (const { beat, x, flatIndex } of measure.beats) {
-      drawRhythmStem(ctx, x, stemBaselineY, beat, palette);
-      if (beat.chordRef) drawChordLabel(ctx, x, tabTopY, beat.chordRef, nonStandardTuning, palette);
-      if (beat.text) drawBeatText(ctx, x, tabTopY, beat.text, palette);
+      if (beat.chordRef) drawChordLabel(ctx, x, geometry.headerY, beat.chordRef, nonStandardTuning, palette);
+      if (beat.text) drawBeatText(ctx, x, geometry.headerY, beat.text, palette);
       drawBeatMarks(ctx, beat, x, tabTopY, palette);
 
       if (beat.isRest) continue;

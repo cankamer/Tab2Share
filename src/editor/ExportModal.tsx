@@ -12,6 +12,7 @@ interface ExportModalProps {
   lineBreakMode: LineBreakMode;
   onLineBreakModeChange: (mode: LineBreakMode) => void;
   onClose: () => void;
+  showNotation?: boolean;
 }
 
 /**
@@ -25,6 +26,7 @@ export function ExportModal({
   lineBreakMode,
   onLineBreakModeChange,
   onClose,
+  showNotation,
 }: ExportModalProps) {
   const { t } = useTranslation();
   const exportPanelRef = useRef<ExportPanelHandle>(null);
@@ -43,6 +45,7 @@ export function ExportModal({
           lineBreakMode={lineBreakMode}
           onLineBreakModeChange={onLineBreakModeChange}
           onOptionsChange={setExportOptions}
+          initialShowNotation={showNotation}
         />
       </div>
     </Modal>

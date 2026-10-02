@@ -506,3 +506,20 @@ export function togglePickStroke(project: Project, position: BeatPosition, direc
   beat.pickStroke = beat.pickStroke === direction ? undefined : direction;
   return next;
 }
+
+/**
+ * Writes transcribed beats into the track starting at `startMeasure`: measures that already exist keep
+ * their tempo / time signature / repeat / section settings and only get new beats; measures past the
+ * end of the track are appended. Used both to commit a recording and to preview one while it is live.
+ */
+export function applyRecording(project: Project, startMeasure: number, beatLists: Beat[][]): Project {
+  const next = cloneProject(project);
+  const measures = next.track.measures;
+  beatLists.forEach((beats, offset) => {
+    const index = startMeasure + offset;
+    if (beats.length === 0) return;
+    if (index < measures.length) measures[index].beats = structuredClone(beats);
+    else measures.push({ beats: structuredClone(beats) });
+  });
+  return next;
+}

@@ -3,9 +3,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 interface NeumorphicScrollbarProps {
   scrollRef: React.RefObject<HTMLDivElement | null>;
   className?: string;
+  /** Fires whenever the user grabs, drags or clicks the bar — lets playback stop auto-following while they look around. */
+  onUserScroll?: () => void;
 }
 
-export function NeumorphicScrollbar({ scrollRef, className = "" }: NeumorphicScrollbarProps) {
+export function NeumorphicScrollbar({ scrollRef, className = "", onUserScroll }: NeumorphicScrollbarProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [thumbRatio, setThumbRatio] = useState(1);
@@ -59,12 +61,14 @@ export function NeumorphicScrollbar({ scrollRef, className = "" }: NeumorphicScr
 
     event.preventDefault();
     event.stopPropagation();
+    onUserScroll?.();
     setIsDragging(true);
     wasDraggingRef.current = false;
     dragStartXRef.current = event.clientX;
     dragStartScrollLeftRef.current = el.scrollLeft;
 
     const handlePointerMove = (e: PointerEvent) => {
+      onUserScroll?.();
       const deltaX = e.clientX - dragStartXRef.current;
       if (Math.abs(deltaX) > 2) {
         wasDraggingRef.current = true;
@@ -101,6 +105,7 @@ export function NeumorphicScrollbar({ scrollRef, className = "" }: NeumorphicScr
     const el = scrollRef.current;
     const track = trackRef.current;
     if (!el || !track) return;
+    onUserScroll?.();
 
     const rect = track.getBoundingClientRect();
     const clickX = event.clientX - rect.left;

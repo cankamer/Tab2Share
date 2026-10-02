@@ -4,26 +4,30 @@ export const STRING_SPACING = 28;
 // stack never collides with the chord label above it (string 1 IS tabTopY, unlike every
 // other string row), and the "Capo N" label (drawn once, top-left) clears beat 0's own
 // chord label when both are present — a common combination, not a rare edge case.
-// Grew from 80 to 96 to make room for the rows Guitar Pro prints above the staff: section
+// Grew from 80 to 100 to make room for the rows Guitar Pro prints above the staff: section
 // label and tempo (top), then free text, then the existing chord names.
-export const TAB_TOP_MARGIN = 96;
+export const TAB_TOP_MARGIN = 100;
 /** Offsets above the top string (tabTopY) for the measure-header rows. */
-export const SECTION_ROW_TOP = 95; // top edge of the section box
-export const TEMPO_ROW_OFFSET = 69; // vertical center of the "♩ = N" marker
-export const TEXT_ROW_OFFSET = 58; // vertical center of beat text
+export const SECTION_ROW_TOP = 99; // top edge of the section box
+export const TEMPO_ROW_OFFSET = 75; // vertical center of the "♩ = N" marker
+export const TEXT_ROW_OFFSET = 62; // vertical center of beat text
 export const BEAT_MARK_OFFSET = 16; // center of accent/staccato/fermata/pick-stroke glyphs
 export const MEASURE_NUMBER_OFFSET = 6; // baseline of the small measure number
 export const CAPO_LABEL_OFFSET = 36; // top of the "Capo N" label above the first string
 export const CHORD_LABEL_OFFSET = 40;
+/** Standard-notation staff (shown above the tab): line spacing and the room under it for ledger lines + the tab's own marks. */
+export const STAFF_SPACING = 10;
+export const STAFF_HEIGHT = STAFF_SPACING * 4;
+export const NOTATION_GAP_BELOW = 60;
+/** Room between the header rows and the staff for ledger lines above it (high notes), so they never touch chord names. */
+export const NOTATION_HEADROOM = 30;
 export const TUNING_LABEL_WIDTH = 26;
 export const BEAT_WIDTH = 68;
 export const MEASURE_BARLINE_GAP = 22;
 export const STEM_LENGTH = 30;
 export const STEM_GAP_BELOW_TAB = 10;
-export const FLAG_GAP = 7;
-export const FLAG_WIDTH = 10;
-export const BOTTOM_MARGIN = 16;
-export const EFFECT_ROW_GAP = 10;
+export const BOTTOM_MARGIN = 10;
+export const EFFECT_ROW_GAP = 16; // leaves room for the tuplet "3" under the stems
 export const EFFECT_ROW_HEIGHT = 15;
 export const LINE_GAP = 24;
 
@@ -126,3 +130,8 @@ export const WATERMARK_TEXT = "Tab2Share";
 export const WATERMARK_FONT = "12px sans-serif";
 export const WATERMARK_MARGIN = 8;
 export const WATERMARK_OPACITY = 0.35;
+
+/** Y of the top string: the staff takes the place of the header's reference line when notation is on. */
+export function tabTopMargin(showNotation: boolean): number {
+  return showNotation ? TAB_TOP_MARGIN + NOTATION_HEADROOM + STAFF_HEIGHT + NOTATION_GAP_BELOW : TAB_TOP_MARGIN;
+}

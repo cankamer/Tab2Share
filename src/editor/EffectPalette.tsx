@@ -2,9 +2,27 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Beat, BendPreset, Note, SlideType } from "../model/types";
 import { SkeuButton } from "./ui/SkeuButton";
+import { Icon, type IconName } from "./ui/Icons";
 
 const BEND_PRESETS: BendPreset[] = ["half", "full", "oneAndHalf", "bendRelease", "preBend"];
 const SLIDE_TYPES: SlideType[] = ["legato", "shift", "inFromBelow", "inFromAbove", "outUp", "outDown"];
+
+const BEND_ICONS: Partial<Record<BendPreset, IconName>> = {
+  half: "bendHalf",
+  full: "bendFull",
+  oneAndHalf: "bendOneAndHalf",
+  bendRelease: "bendRelease",
+  preBend: "preBend",
+};
+
+const SLIDE_ICONS: Record<SlideType, IconName> = {
+  legato: "slideLegato",
+  shift: "slideShift",
+  inFromBelow: "slideInBelow",
+  inFromAbove: "slideInAbove",
+  outUp: "slideOutUp",
+  outDown: "slideOutDown",
+};
 
 interface EffectPaletteProps {
   note: Note | undefined;
@@ -26,7 +44,32 @@ interface EffectPaletteProps {
   onClearEffects: () => void;
 }
 
-/** Effect palette (section 7 & section 10.1): single horizontal bar placed above the fretboard card. */
+/** One icon button: the tooltip carries the name and shortcut that used to be the label. */
+function IconButton({
+  icon,
+  title,
+  active,
+  onClick,
+}: {
+  icon: IconName;
+  title: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <SkeuButton
+      title={title}
+      aria-label={title}
+      onClick={onClick}
+      active={active}
+      className="flex h-8 w-9 items-center justify-center !px-0 !py-0"
+    >
+      <Icon name={icon} />
+    </SkeuButton>
+  );
+}
+
+/** Effect palette (section 7 & section 10.1): one horizontal bar of icon buttons above the fretboard, like Guitar Pro's. */
 export function EffectPalette({
   note,
   beat,
@@ -70,127 +113,102 @@ export function EffectPalette({
       beat?.text,
   );
 
+  const separator = <span className="text-[var(--body-edge)]">|</span>;
+
   return (
-    <div className="raised flex flex-wrap items-center gap-3 rounded-2xl p-4 text-xs w-full">
-      {/* Bend Group */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-[10px] font-semibold uppercase text-[var(--label)]/80 mr-1">
-          {t("effectPalette.bendTitle", "Bend")}
-        </span>
+    <div className="raised flex w-full flex-wrap items-center gap-2 rounded-2xl p-3 text-xs">
+      {/* Bend */}
+      <div className="flex flex-wrap items-center gap-1.5">
         {BEND_PRESETS.map((preset) => (
-          <SkeuButton key={preset} onClick={() => onApplyBend(preset)} active={note?.bend === preset} className="text-xs px-2 py-1">
-            {t(`effectPalette.bendPresets.${preset}`)}
-          </SkeuButton>
+          <IconButton
+            key={preset}
+            icon={BEND_ICONS[preset] ?? "bendFull"}
+            title={`${t("menu.note.bend")} ${t(`effectPalette.bendPresets.${preset}`)} (B)`}
+            active={note?.bend === preset}
+            onClick={() => onApplyBend(preset)}
+          />
         ))}
       </div>
 
-      <span className="text-[var(--body-edge)]">|</span>
+      {separator}
 
-      {/* Vibrato Group */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-[10px] font-semibold uppercase text-[var(--label)]/80 mr-1">
-          {t("effectPalette.vibratoTitle", "Vibrato")}
-        </span>
-        <SkeuButton onClick={() => onApplyVibrato("normal")} active={note?.vibrato === "normal"} className="text-xs px-2 py-1">
-          {t("effectPalette.vibratoNormal")}
-        </SkeuButton>
-        <SkeuButton onClick={() => onApplyVibrato("wide")} active={note?.vibrato === "wide"} className="text-xs px-2 py-1">
-          {t("effectPalette.vibratoWide")}
-        </SkeuButton>
+      {/* Vibrato */}
+      <div className="flex items-center gap-1.5">
+        <IconButton
+          icon="vibrato"
+          title={`${t("menu.note.vibrato")} (V)`}
+          active={note?.vibrato === "normal"}
+          onClick={() => onApplyVibrato("normal")}
+        />
+        <IconButton
+          icon="vibratoWide"
+          title={`${t("menu.note.wideVibrato")} (Alt+V)`}
+          active={note?.vibrato === "wide"}
+          onClick={() => onApplyVibrato("wide")}
+        />
       </div>
 
-      <span className="text-[var(--body-edge)]">|</span>
+      {separator}
 
-      {/* Slide Group */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-[10px] font-semibold uppercase text-[var(--label)]/80 mr-1">
-          {t("effectPalette.slideTitle", "Slide")}
-        </span>
+      {/* Slide */}
+      <div className="flex flex-wrap items-center gap-1.5">
         {SLIDE_TYPES.map((type) => (
-          <SkeuButton key={type} onClick={() => onApplySlide(type)} active={note?.slide?.type === type} className="text-xs px-2 py-1">
-            {t(`effectPalette.slideTypes.${type}`)}
-          </SkeuButton>
+          <IconButton
+            key={type}
+            icon={SLIDE_ICONS[type]}
+            title={`${t("menu.note.slide")} — ${t(`effectPalette.slideTypes.${type}`)}${
+              type === "legato" ? " (S)" : type === "shift" ? " (Alt+S)" : ""
+            }`}
+            active={note?.slide?.type === type}
+            onClick={() => onApplySlide(type)}
+          />
         ))}
       </div>
 
-      <span className="text-[var(--body-edge)]">|</span>
+      {separator}
 
       {/* Articulations */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <SkeuButton title="H" onClick={onToggleHammer} active={Boolean(note?.hammer)} className="text-xs px-2 py-1">
-          {t("effectPalette.hammer")}
-        </SkeuButton>
-        <SkeuButton title="X" onClick={onToggleDead} active={Boolean(note?.dead)} className="text-xs px-2 py-1">
-          {t("effectPalette.dead")}
-        </SkeuButton>
-        <SkeuButton title="O" onClick={onToggleGhost} active={Boolean(note?.ghost)} className="text-xs px-2 py-1">
-          {t("effectPalette.ghost")}
-        </SkeuButton>
-        <SkeuButton title="P" onClick={onTogglePalmMute} active={Boolean(beat?.palmMute)} className="text-xs px-2 py-1">
-          {t("effectPalette.palmMute")}
-        </SkeuButton>
-        <SkeuButton title="I" onClick={onToggleLetRing} active={Boolean(beat?.letRing)} className="text-xs px-2 py-1">
-          {t("effectPalette.letRing")}
-        </SkeuButton>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <IconButton icon="hammer" title={`${t("menu.note.hammer")} (H)`} active={Boolean(note?.hammer)} onClick={onToggleHammer} />
+        <IconButton icon="dead" title={`${t("menu.note.dead")} (X)`} active={Boolean(note?.dead)} onClick={onToggleDead} />
+        <IconButton icon="ghost" title={`${t("menu.note.ghost")} (O)`} active={Boolean(note?.ghost)} onClick={onToggleGhost} />
+        <IconButton icon="palmMute" title={`${t("menu.note.palmMute")} (P)`} active={Boolean(beat?.palmMute)} onClick={onTogglePalmMute} />
+        <IconButton icon="letRing" title={`${t("menu.note.letRing")} (I)`} active={Boolean(beat?.letRing)} onClick={onToggleLetRing} />
       </div>
 
-      <span className="text-[var(--body-edge)]">|</span>
+      {separator}
 
       {/* Guitar Pro style notation marks live in a popover so the palette stays one row tall */}
       <div ref={moreRef} className="relative">
-        <SkeuButton
+        <IconButton
+          icon="more"
           title={t("effectPalette.moreTitle")}
-          onClick={() => setShowMore((value) => !value)}
           active={showMore || hasMoreActive}
-          className="text-xs px-2.5 py-1"
-        >
-          {t("effectPalette.more")} ▴
-        </SkeuButton>
+          onClick={() => setShowMore((value) => !value)}
+        />
         {showMore ? (
           <div
-            className="raised absolute bottom-full left-0 z-30 mb-2 flex w-max max-w-[34rem] flex-wrap items-center gap-1.5 rounded-2xl p-3"
+            className="raised absolute bottom-full left-0 z-30 mb-2 flex w-max max-w-[24rem] flex-wrap items-center gap-1.5 rounded-2xl p-3"
             style={{ background: "var(--body)" }}
           >
-            <SkeuButton title="L" onClick={onToggleTie} active={Boolean(note?.tie)} className="text-xs px-2 py-1">
-              {t("effectPalette.tie")}
-            </SkeuButton>
-            <SkeuButton title="Y" onClick={onToggleHarmonic} active={Boolean(note?.harmonic)} className="text-xs px-2 py-1">
-              {t("effectPalette.harmonic")}
-            </SkeuButton>
-            <SkeuButton title="Shift+;" onClick={() => onToggleAccent("heavy")} active={beat?.accent === "heavy"} className="text-xs px-2 py-1">
-              {t("effectPalette.heavyAccent")}
-            </SkeuButton>
-            <SkeuButton title=";" onClick={() => onToggleAccent("normal")} active={beat?.accent === "normal"} className="text-xs px-2 py-1">
-              {t("effectPalette.accent")}
-            </SkeuButton>
-            <SkeuButton title="!" onClick={() => onToggleBeatMark("staccato")} active={Boolean(beat?.staccato)} className="text-xs px-2 py-1">
-              {t("effectPalette.staccato")}
-            </SkeuButton>
-            <SkeuButton title="F" onClick={() => onToggleBeatMark("fermata")} active={Boolean(beat?.fermata)} className="text-xs px-2 py-1">
-              {t("effectPalette.fermata")}
-            </SkeuButton>
-            <SkeuButton title="N" onClick={() => onToggleBeatMark("trill")} active={Boolean(beat?.trill)} className="text-xs px-2 py-1">
-              {t("effectPalette.trill")}
-            </SkeuButton>
-            <SkeuButton title="Shift+D" onClick={() => onTogglePickStroke("down")} active={beat?.pickStroke === "down"} className="text-xs px-2 py-1">
-              {t("effectPalette.pickDown")}
-            </SkeuButton>
-            <SkeuButton title="Shift+U" onClick={() => onTogglePickStroke("up")} active={beat?.pickStroke === "up"} className="text-xs px-2 py-1">
-              {t("effectPalette.pickUp")}
-            </SkeuButton>
-            <SkeuButton title="T" onClick={onEditText} active={Boolean(beat?.text)} className="text-xs px-2 py-1">
-              {t("effectPalette.text")}
-            </SkeuButton>
+            <IconButton icon="tie" title={`${t("menu.note.tie")} (L)`} active={Boolean(note?.tie)} onClick={onToggleTie} />
+            <IconButton icon="harmonic" title={`${t("menu.note.harmonic")} (Y)`} active={Boolean(note?.harmonic)} onClick={onToggleHarmonic} />
+            <IconButton icon="accent" title={`${t("menu.note.accent")} (;)`} active={beat?.accent === "normal"} onClick={() => onToggleAccent("normal")} />
+            <IconButton icon="heavyAccent" title={`${t("menu.note.heavyAccent")} (Shift+;)`} active={beat?.accent === "heavy"} onClick={() => onToggleAccent("heavy")} />
+            <IconButton icon="staccato" title={`${t("menu.note.staccato")} (!)`} active={Boolean(beat?.staccato)} onClick={() => onToggleBeatMark("staccato")} />
+            <IconButton icon="fermata" title={`${t("menu.note.fermata")} (F)`} active={Boolean(beat?.fermata)} onClick={() => onToggleBeatMark("fermata")} />
+            <IconButton icon="trill" title={`${t("menu.note.trill")} (N)`} active={Boolean(beat?.trill)} onClick={() => onToggleBeatMark("trill")} />
+            <IconButton icon="pickDown" title={`${t("menu.note.pickDown")} (Shift+D)`} active={beat?.pickStroke === "down"} onClick={() => onTogglePickStroke("down")} />
+            <IconButton icon="pickUp" title={`${t("menu.note.pickUp")} (Shift+U)`} active={beat?.pickStroke === "up"} onClick={() => onTogglePickStroke("up")} />
+            <IconButton icon="text" title={`${t("menu.note.text")} (T)`} active={Boolean(beat?.text)} onClick={onEditText} />
           </div>
         ) : null}
       </div>
 
-      <span className="text-[var(--body-edge)]">|</span>
+      {separator}
 
       {/* Clear */}
-      <SkeuButton title="Ctrl+Shift+X" onClick={onClearEffects} className="text-xs px-2.5 py-1">
-        {t("effectPalette.clearEffects")}
-      </SkeuButton>
+      <IconButton icon="clear" title={`${t("effectPalette.clearEffects")} (Ctrl+Shift+X)`} onClick={onClearEffects} />
     </div>
   );
 }

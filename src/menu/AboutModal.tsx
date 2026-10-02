@@ -9,10 +9,11 @@ export function AboutModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
 
   return (
-    <Modal title={t("about.title")} onClose={onClose} width={320}>
+    <Modal title={t("about.title")} onClose={onClose} width={380}>
       <div className="flex flex-col gap-2 text-xs" style={{ color: "var(--control-text)" }}>
         <p>{t("about.version", { version: APP_VERSION })}</p>
         <p style={{ color: "var(--label)" }}>{t("about.license")}</p>
+        <p style={{ color: "var(--label)" }}>{t("about.credits")}</p>
         <SkeuButton onClick={onClose} className="self-end">
           {t("about.close")}
         </SkeuButton>

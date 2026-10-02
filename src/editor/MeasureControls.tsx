@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { SkeuButton } from "./ui/SkeuButton";
 import { SkeuInput } from "./ui/SkeuInput";
 import { Knob } from "./ui/Knob";
+import { Icon } from "./ui/Icons";
 
 interface MeasureControlsProps {
   measureIndex: number;
@@ -98,25 +99,28 @@ export function MeasureControls({
         </span>
         <div className="flex items-center gap-1.5 h-7">
           <SkeuButton
-            title="Ctrl+M"
+            title={`${t("measureControls.insertMeasure")} (Ctrl+Insert)`}
+            aria-label={t("measureControls.insertMeasure")}
             onClick={onInsertMeasure}
-            className="h-7 px-2.5 text-xs font-medium !py-0 flex items-center justify-center"
+            className="h-7 w-9 !px-0 !py-0 flex items-center justify-center"
           >
-            {t("measureControls.insertMeasure")}
+            <Icon name="insertMeasure" size={18} />
           </SkeuButton>
           <SkeuButton
-            title="Ctrl+D"
+            title={`${t("measureControls.duplicateMeasure")} (Ctrl+D)`}
+            aria-label={t("measureControls.duplicateMeasure")}
             onClick={onDuplicateMeasure}
-            className="h-7 px-2.5 text-xs font-medium !py-0 flex items-center justify-center"
+            className="h-7 w-9 !px-0 !py-0 flex items-center justify-center"
           >
-            {t("measureControls.duplicateMeasure")}
+            <Icon name="duplicateMeasure" size={18} />
           </SkeuButton>
           <SkeuButton
-            title="Ctrl+Shift+M"
+            title={`${t("measureControls.deleteMeasure")} (Ctrl+Delete)`}
+            aria-label={t("measureControls.deleteMeasure")}
             onClick={onDeleteMeasure}
-            className="h-7 px-2.5 text-xs font-medium !py-0 flex items-center justify-center text-red-400 hover:text-red-300"
+            className="h-7 w-9 !px-0 !py-0 flex items-center justify-center text-red-400 hover:text-red-300"
           >
-            {t("measureControls.deleteMeasure")}
+            <Icon name="deleteMeasure" size={18} />
           </SkeuButton>
         </div>
       </div>
@@ -133,16 +137,18 @@ export function MeasureControls({
           <SkeuButton
             title={`${t("measureControls.transposeUp")} (Ctrl+Up)`}
             onClick={onTransposeUp}
-            className="h-7 px-2.5 font-mono text-xs font-bold !py-0 flex items-center justify-center"
+            aria-label={t("measureControls.transposeUp")}
+            className="h-7 px-2 font-mono text-xs font-bold !py-0 flex items-center justify-center gap-0.5"
           >
-            +1
+            <Icon name="transposeUp" size={14} />1
           </SkeuButton>
           <SkeuButton
             title={`${t("measureControls.transposeDown")} (Ctrl+Down)`}
             onClick={onTransposeDown}
-            className="h-7 px-2.5 font-mono text-xs font-bold !py-0 flex items-center justify-center"
+            aria-label={t("measureControls.transposeDown")}
+            className="h-7 px-2 font-mono text-xs font-bold !py-0 flex items-center justify-center gap-0.5"
           >
-            -1
+            <Icon name="transposeDown" size={14} />1
           </SkeuButton>
         </div>
       </div>
@@ -268,9 +274,11 @@ export function MeasureControls({
             title={`${t("measureControls.section")} (Shift+Insert)`}
             active={sectionLabel !== undefined}
             onClick={onEditSection}
-            className="h-7 max-w-[7rem] truncate px-2.5 text-xs font-medium !py-0 flex items-center justify-center"
+            aria-label={t("measureControls.section")}
+            className="h-7 max-w-[7rem] truncate px-2.5 text-xs font-medium !py-0 flex items-center justify-center gap-1"
           >
-            {sectionLabel ?? t("measureControls.section")}
+            <Icon name="section" size={16} />
+            {sectionLabel}
           </SkeuButton>
         </div>
       </div>

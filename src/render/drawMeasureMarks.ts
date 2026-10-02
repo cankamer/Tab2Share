@@ -1,4 +1,5 @@
 import type { Beat, Measure } from "../model/types";
+import { staffBottomY, type StaffGeometry } from "./drawNotation";
 import { REPEAT_START_WIDTH, TIME_SIGNATURE_WIDTH, type MeasureMarks } from "../editor/effectiveSettings";
 import {
   BEAT_MARK_OFFSET,
@@ -19,6 +20,9 @@ export interface LineGeometry {
   stringY: number[];
   tabTopY: number;
   tabBottomY: number;
+  /** Reference line for the header rows: the staff's top line when notation is shown, else tabTopY. */
+  headerY: number;
+  staff?: StaffGeometry;
 }
 
 export interface MeasureHeaderInput {
@@ -41,7 +45,7 @@ export function drawMeasureHeader(
   palette: TabPalette,
 ): void {
   const { measure, measureIndex, marks, startX, closeX } = input;
-  const { tabTopY, tabBottomY, stringY } = geometry;
+  const { tabTopY, tabBottomY, stringY, headerY, staff } = geometry;
 
   ctx.save();
 
@@ -49,13 +53,13 @@ export function drawMeasureHeader(
   ctx.fillStyle = palette.tuningLabel;
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.fillText(String(measureIndex + 1), startX + 3, tabTopY - MEASURE_NUMBER_OFFSET);
+  ctx.fillText(String(measureIndex + 1), startX + 3, headerY - MEASURE_NUMBER_OFFSET);
 
   if (measure.sectionLabel) {
     ctx.font = SECTION_FONT;
     const textWidth = ctx.measureText(measure.sectionLabel).width;
     const boxX = startX + 2;
-    const boxY = tabTopY - SECTION_ROW_TOP;
+    const boxY = headerY - SECTION_ROW_TOP;
     ctx.strokeStyle = palette.chordLabel;
     ctx.lineWidth = 1.4;
     ctx.strokeRect(boxX, boxY, textWidth + 12, 16);
@@ -65,12 +69,15 @@ export function drawMeasureHeader(
     ctx.fillText(measure.sectionLabel, boxX + 6, boxY + 8.5);
   }
 
-  if (marks.tempo !== null) drawTempoMarker(ctx, startX + 4, tabTopY - TEMPO_ROW_OFFSET, marks.tempo, palette);
+  if (marks.tempo !== null) drawTempoMarker(ctx, startX + 4, headerY - TEMPO_ROW_OFFSET, marks.tempo, palette);
 
   const hasRepeatStart = Boolean(measure.repeatStart);
   if (marks.timeSignature) {
     const centerX = startX + (hasRepeatStart ? REPEAT_START_WIDTH : 0) + TIME_SIGNATURE_WIDTH / 2;
     drawTimeSignature(ctx, centerX, stringY, marks.timeSignature, palette);
+    if (staff) {
+      drawTimeSignatureAt(ctx, centerX, staff.topY + staff.spacing, staff.topY + staff.spacing * 3, marks.timeSignature, palette, 15);
+    }
   }
 
   ctx.strokeStyle = palette.barline;
@@ -83,6 +90,14 @@ export function drawMeasureHeader(
     ctx.lineTo(startX + 5, tabBottomY);
     ctx.stroke();
     drawRepeatDots(ctx, startX + 10, stringY);
+    if (staff) {
+      ctx.fillRect(startX - 1, staff.topY, 3, staffBottomY(staff) - staff.topY);
+      ctx.beginPath();
+      ctx.moveTo(startX + 5, staff.topY);
+      ctx.lineTo(startX + 5, staffBottomY(staff));
+      ctx.stroke();
+      drawRepeatDots(ctx, startX + 10, [0, staff.topY + staff.spacing * 1.5, staff.topY + staff.spacing * 2.5, 0, 0]);
+    }
   }
   if (measure.repeatEnd) {
     ctx.fillRect(closeX - 2, tabTopY, 3, tabBottomY - tabTopY);
@@ -92,12 +107,20 @@ export function drawMeasureHeader(
     ctx.lineTo(closeX - 6, tabBottomY);
     ctx.stroke();
     drawRepeatDots(ctx, closeX - 11, stringY);
+    if (staff) {
+      ctx.fillRect(closeX - 2, staff.topY, 3, staffBottomY(staff) - staff.topY);
+      ctx.beginPath();
+      ctx.moveTo(closeX - 6, staff.topY);
+      ctx.lineTo(closeX - 6, staffBottomY(staff));
+      ctx.stroke();
+      drawRepeatDots(ctx, closeX - 11, [0, staff.topY + staff.spacing * 1.5, staff.topY + staff.spacing * 2.5, 0, 0]);
+    }
 
     ctx.font = MEASURE_NUMBER_FONT;
     ctx.fillStyle = palette.tuningLabel;
     ctx.textAlign = "right";
     ctx.textBaseline = "alphabetic";
-    ctx.fillText(`x${measure.repeatEnd}`, closeX - 1, tabTopY - MEASURE_NUMBER_OFFSET);
+    ctx.fillText(`x${measure.repeatEnd}`, closeX - 1, headerY - MEASURE_NUMBER_OFFSET);
   }
 
   ctx.restore();
@@ -136,30 +159,42 @@ function drawTimeSignature(
   timeSignature: { num: number; den: number },
   palette: TabPalette,
 ) {
-  ctx.font = TIME_SIGNATURE_FONT;
+  drawTimeSignatureAt(ctx, centerX, stringY[1], stringY[4], timeSignature, palette, 20);
+}
+
+function drawTimeSignatureAt(
+  ctx: CanvasRenderingContext2D,
+  centerX: number,
+  numeratorY: number,
+  denominatorY: number,
+  timeSignature: { num: number; den: number },
+  palette: TabPalette,
+  fontSize: number,
+) {
+  ctx.font = fontSize === 20 ? TIME_SIGNATURE_FONT : `bold ${fontSize}px sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   const rows: [string, number][] = [
-    [String(timeSignature.num), stringY[1]],
-    [String(timeSignature.den), stringY[4]],
+    [String(timeSignature.num), numeratorY],
+    [String(timeSignature.den), denominatorY],
   ];
   for (const [label, y] of rows) {
     const width = ctx.measureText(label).width;
     ctx.fillStyle = palette.background;
-    ctx.fillRect(centerX - width / 2 - 2, y - 11, width + 4, 22);
+    ctx.fillRect(centerX - width / 2 - 2, y - fontSize * 0.55, width + 4, fontSize * 1.1);
     ctx.fillStyle = palette.fretNumber;
     ctx.fillText(label, centerX, y);
   }
 }
 
 /** Free text above a beat (Guitar Pro's "T"), left-aligned from the beat like a text annotation. */
-export function drawBeatText(ctx: CanvasRenderingContext2D, x: number, tabTopY: number, text: string, palette: TabPalette) {
+export function drawBeatText(ctx: CanvasRenderingContext2D, x: number, headerY: number, text: string, palette: TabPalette) {
   ctx.save();
   ctx.font = BEAT_TEXT_FONT;
   ctx.fillStyle = palette.chordLabel;
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
-  ctx.fillText(text, x - 10, tabTopY - TEXT_ROW_OFFSET);
+  ctx.fillText(text, x - 10, headerY - TEXT_ROW_OFFSET);
   ctx.restore();
 }
 

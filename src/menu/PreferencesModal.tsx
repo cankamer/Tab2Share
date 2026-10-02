@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Modal } from "../editor/ui/Modal";
 import { SkeuButton } from "../editor/ui/SkeuButton";
+import { Toggle } from "../editor/ui/Toggle";
 import type { AppLanguage } from "../i18n";
 import type { ThemeChoice } from "../theme";
 
@@ -10,13 +11,23 @@ interface PreferencesModalProps {
   onSetTheme: (choice: ThemeChoice) => void;
   language: AppLanguage;
   onSetLanguage: (language: AppLanguage) => void;
+  reverseScroll: boolean;
+  onSetReverseScroll: (value: boolean) => void;
 }
 
 const THEME_CHOICES: ThemeChoice[] = ["light", "dark", "system"];
 const LANGUAGES: AppLanguage[] = ["en", "tr"];
 
 /** Edit > Preferences... (section 8) — theme and language quick access, alongside the same View menu controls. */
-export function PreferencesModal({ onClose, theme, onSetTheme, language, onSetLanguage }: PreferencesModalProps) {
+export function PreferencesModal({
+  onClose,
+  theme,
+  onSetTheme,
+  language,
+  onSetLanguage,
+  reverseScroll,
+  onSetReverseScroll,
+}: PreferencesModalProps) {
   const { t } = useTranslation();
 
   return (
@@ -43,6 +54,8 @@ export function PreferencesModal({ onClose, theme, onSetTheme, language, onSetLa
             ))}
           </div>
         </div>
+
+        <Toggle checked={reverseScroll} onChange={onSetReverseScroll} label={t("preferences.reverseScroll")} />
 
         <p style={{ color: "var(--label)" }}>{t("preferences.autosaveNote")}</p>
 
